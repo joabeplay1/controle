@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Novo App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Neo Geo Arcade</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Mini Neo Geo Arcade</h1>
+
+    <!-- Seleção da ROM -->
+    <input type="file" id="rom-input" accept=".zip">
+    <button onclick="startGame()">Carregar ROM</button>
+
+    <!-- Canvas do jogo -->
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+
+    <!-- Controles na tela -->
+    <div id="touch-controls">
+      <button onclick="emulator.sendKey('UP')">↑</button>
+      <button onclick="emulator.sendKey('DOWN')">↓</button>
+      <button onclick="emulator.sendKey('LEFT')">←</button>
+      <button onclick="emulator.sendKey('RIGHT')">→</button>
+      <button onclick="emulator.sendKey('A')">A</button>
+      <button onclick="emulator.sendKey('B')">B</button>
+      <button onclick="emulator.sendKey('C')">C</button>
+      <button onclick="emulator.sendKey('D')">D</button>
+    </div>
+
+  </div>
+
+  <!-- EmulatorJS -->
+  <script src="emulator/emulator-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+<script src="script.js"></script>
+</body>
+</html>
