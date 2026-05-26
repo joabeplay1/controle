@@ -1,91 +1,2092 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!DOCTYPE html<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Cyberpunk - Playable</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsnes@latest/dist/jsnes.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Maze: Pac-Man Arcade</title>
     <style>
-        /* [MANTIVE TODO SEU CSS ORIGINAL AQUI PARA ECONOMIZAR ESPAÇO] */
-        /* Certifique-se de manter seu CSS original intacto dentro desta tag style */
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        #nes-canvas { width: 100%; height: 100%; object-fit: contain; }
-        .screen { display: none; }
-        .active { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        /* Global Styles */
+        :root {
+            --neon-blue: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff00;
+            --neon-yellow: #ffff00;
+            --neon-red: #ff0000;
+            --neon-orange: #ffa500;
+            --neon-cyan: #00ffff; /* Alias for neon-blue for Inky */
+            --bg-color: #000;
+            --text-color: #fff;
+            --font-family-arcade: 'Press Start 2P', cursive; /* Placeholder, will use a fallback */
+        }
+
+        /* Embed Press Start 2P font for retro feel */
+        @font-face {
+            font-family: 'Press Start 2P';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Press Start 2P'), local('PressStart2P-Regular'), url('https://fonts.gstatic.com/s/pressstart2p/v15/8mik-FUtPqtmrFOeP-r6VA.woff2') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family-arcade), monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            cursor: none; /* Hide default cursor for game feel */
+            position: relative;
+        }
+
+        /* CRT Effect & Scanlines */
+        .crt-effect::before,
+        .crt-effect::after {
+            content: ' ';
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+        }
+
+        .crt-effect::before {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 10;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .crt-effect::after {
+            box-shadow: inset 0 0 10vmin 5vmin rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .scanlines::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(0, 0, 0, 0.1) 1px,
+                rgba(0, 0, 0, 0.2) 3px,
+                transparent 4px
+            );
+            pointer-events: none;
+            z-index: 10;
+            animation: scanlines 1s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+
+        /* Main Container */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: var(--bg-color);
+            display: block;
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 20px var(--neon-blue), inset 0 0 20px var(--neon-blue);
+            transition: transform 0.3s ease-in-out;
+            max-width: 95vw;
+            max-height: 95vh;
+            object-fit: contain;
+        }
+
+        /* UI Elements - General */
+        .ui-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            pointer-events: none;
+        }
+
+        .ui-screen.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .ui-title {
+            font-size: clamp(2em, 8vw, 4em);
+            color: var(--neon-yellow);
+            text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow), 0 0 30px var(--neon-yellow);
+            margin-bottom: 40px;
+            animation: pulse 2s infinite alternate;
+        }
+
+        .ui-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 80%;
+            max-width: 400px;
+        }
+
+        .ui-button {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 15px 25px;
+            font-size: clamp(1em, 4vw, 1.5em);
+            text-align: center;
+            text-decoration: none;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-blue);
+            transition: all 0.3s ease-in-out;
+            font-family: var(--font-family-arcade), monospace;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ui-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+            transition: 0.5s;
+        }
+
+        .ui-button:hover::before {
+            left: 100%;
+        }
+
+        .ui-button:hover {
+            background-color: var(--neon-blue);
+            color: var(--bg-color);
+            box-shadow: 0 0 20px var(--neon-blue), 0 0 40px var(--neon-blue);
+            transform: scale(1.05);
+        }
+
+        .ui-text {
+            font-size: clamp(0.8em, 3vw, 1.2em);
+            color: var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green);
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        /* Loading Screen */
+        #loading-screen .ui-title {
+            animation: flicker 1.5s infinite alternate;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            color: var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green);
+            font-size: clamp(0.7em, 2.5vw, 1em);
+            z-index: 50;
+            pointer-events: none;
+            flex-wrap: wrap;
+        }
+
+        #hud > div {
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green);
+            margin: 5px;
+        }
+
+        #hud-right {
+            text-align: right;
+        }
+
+        #hud-powerups {
+            width: 100%;
+            text-align: center;
+            margin-top: 10px;
+            font-size: clamp(0.6em, 2vw, 0.9em);
+            color: var(--neon-pink);
+            text-shadow: 0 0 5px var(--neon-pink);
+        }
+
+        /* Settings Screen */
+        #settings-screen .ui-menu {
+            max-width: 500px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-size: clamp(0.9em, 3.5vw, 1.3em);
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px var(--neon-blue);
+        }
+
+        .setting-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .volume-slider {
+            width: 100px;
+            height: 8px;
+            -webkit-appearance: none;
+            background: rgba(0, 255, 255, 0.3);
+            outline: none;
+            border-radius: 4px;
+            box-shadow: 0 0 5px var(--neon-blue);
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .mute-button {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--neon-pink);
+            color: var(--neon-pink);
+            padding: 8px 12px;
+            font-size: clamp(0.8em, 3vw, 1.2em);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--neon-pink);
+            transition: all 0.3s ease-in-out;
+            font-family: var(--font-family-arcade), monospace;
+        }
+
+        .mute-button.active {
+            background-color: var(--neon-pink);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        /* High Scores */
+        #highscores-screen .score-list {
+            list-style: none;
+            padding: 0;
+            width: 80%;
+            max-width: 400px;
+            margin-top: 20px;
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+            font-size: clamp(0.9em, 3.5vw, 1.3em);
+            color: var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+
+        .score-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Difficulty */
+        #difficulty-screen .difficulty-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 80%;
+            max-width: 400px;
+        }
+
+        .difficulty-button {
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--neon-yellow);
+            color: var(--neon-yellow);
+            padding: 12px 20px;
+            font-size: clamp(1em, 4vw, 1.5em);
+            text-align: center;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-yellow);
+            transition: all 0.3s ease-in-out;
+            font-family: var(--font-family-arcade), monospace;
+        }
+
+        .difficulty-button:hover,
+        .difficulty-button.active {
+            background-color: var(--neon-yellow);
+            color: var(--bg-color);
+            box-shadow: 0 0 20px var(--neon-yellow), 0 0 40px var(--neon-yellow);
+            transform: scale(1.05);
+        }
+
+        /* Mobile Joystick */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px; /* Adjust size as needed */
+            height: 180px;
+            background-color: rgba(0, 255, 255, 0.1);
+            border: 2px solid var(--neon-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--neon-blue);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 60;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            pointer-events: none;
+        }
+
+        #mobile-controls.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        #joystick-handle {
+            width: 60px;
+            height: 60px;
+            background-color: var(--neon-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--neon-blue);
+            position: absolute;
+            transform: translate(-50%, -50%); /* Center the handle */
+            left: 50%;
+            top: 50%;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow); }
+            100% { text-shadow: 0 0 15px var(--neon-yellow), 0 0 30px var(--neon-yellow), 0 0 40px var(--neon-yellow); }
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+                text-shadow:
+                    -0.2rem -0.2rem 1rem var(--neon-blue),
+                    0.2rem 0.2rem 1rem var(--neon-blue),
+                    0 0 2rem var(--neon-blue),
+                    0 0 4rem var(--neon-blue),
+                    0 0 6rem var(--neon-blue),
+                    0 0 8rem var(--neon-blue),
+                    0 0 10rem var(--neon-blue);
+            }
+            20%, 24%, 55% {
+                text-shadow: none;
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #hud {
+                flex-direction: column;
+                align-items: center;
+                top: 5px;
+                left: 5px;
+                right: 5px;
+            }
+            #hud > div {
+                width: calc(100% - 20px);
+                text-align: center;
+                margin: 2px 0;
+            }
+            #hud-right {
+                text-align: center;
+            }
+            #hud-powerups {
+                margin-top: 5px;
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="game-container" class="crt-effect scanlines">
+        <canvas id="gameCanvas"></canvas>
 
-    <div id="app">
-        <div id="game-launch-screen" class="screen">
-            <h1 id="launching-game-name">JOGANDO...</h1>
-            <canvas id="nes-canvas" width="256" height="240"></canvas>
-            <p>Pressione ESC para sair.</p>
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="ui-screen active">
+            <h1 class="ui-title">Loading...</h1>
+            <p class="ui-text">Prepare for retro neon action!</p>
         </div>
-        
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="ui-screen">
+            <h1 class="ui-title">Neon Maze</h1>
+            <div class="ui-menu">
+                <button class="ui-button" id="play-button">Play Game</button>
+                <button class="ui-button" id="continue-button" style="display: none;">Continue</button>
+                <button class="ui-button" id="difficulty-button">Difficulty</button>
+                <button class="ui-button" id="highscores-button">High Scores</button>
+                <button class="ui-button" id="settings-button">Settings</button>
+            </div>
         </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="ui-screen">
+            <h1 class="ui-title">Paused</h1>
+            <div class="ui-menu">
+                <button class="ui-button" id="resume-button">Resume</button>
+                <button class="ui-button" id="restart-button">Restart Level</button>
+                <button class="ui-button" id="pause-to-main-menu-button">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="ui-screen">
+            <h1 class="ui-title" style="color: var(--neon-red); text-shadow: 0 0 10px var(--neon-red), 0 0 20px var(--neon-red);">Game Over!</h1>
+            <p class="ui-text" id="gameover-score">Score: 0</p>
+            <div class="ui-menu">
+                <button class="ui-button" id="gameover-restart-button">Play Again</button>
+                <button class="ui-button" id="gameover-main-menu-button">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="ui-screen">
+            <h1 class="ui-title" style="color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);">Victory!</h1>
+            <p class="ui-text" id="victory-score">Score: 0</p>
+            <div class="ui-menu">
+                <button class="ui-button" id="victory-next-level-button">Next Level</button>
+                <button class="ui-button" id="victory-main-menu-button">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="ui-screen">
+            <h1 class="ui-title">Settings</h1>
+            <div class="ui-menu">
+                <div class="setting-item">
+                    <span class="setting-label">Music Volume</span>
+                    <div class="setting-controls">
+                        <input type="range" min="0" max="1" step="0.05" value="0.5" class="volume-slider" id="music-volume-slider">
+                        <button class="mute-button" id="music-mute-button">Mute</button>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">SFX Volume</span>
+                    <div class="setting-controls">
+                        <input type="range" min="0" max="1" step="0.05" value="0.7" class="volume-slider" id="sfx-volume-slider">
+                        <button class="mute-button" id="sfx-mute-button">Mute</button>
+                    </div>
+                </div>
+                <button class="ui-button" id="settings-back-button">Back</button>
+            </div>
+        </div>
+
+        <!-- High Scores Screen -->
+        <div id="highscores-screen" class="ui-screen">
+            <h1 class="ui-title">High Scores</h1>
+            <ul class="score-list" id="highscores-list">
+                <!-- Scores will be injected here -->
+            </ul>
+            <button class="ui-button" id="highscores-back-button">Back</button>
+        </div>
+
+        <!-- Difficulty Screen -->
+        <div id="difficulty-screen" class="ui-screen">
+            <h1 class="ui-title">Difficulty</h1>
+            <div class="difficulty-options">
+                <button class="difficulty-button" data-difficulty="easy">Easy</button>
+                <button class="difficulty-button" data-difficulty="normal">Normal</button>
+                <button class="difficulty-button" data-difficulty="hard">Hard</button>
+                <button class="ui-button" id="difficulty-back-button">Back</button>
+            </div>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div id="hud-left">
+                Score: <span id="hud-score">0</span><br>
+                High Score: <span id="hud-high-score">0</span>
+            </div>
+            <div id="hud-center">
+                Lives: <span id="hud-lives">3</span><br>
+                Level: <span id="hud-level">1</span>
+            </div>
+            <div id="hud-right">
+                FPS: <span id="hud-fps">0</span>
+            </div>
+            <div id="hud-powerups">
+                Active Power-ups: <span id="hud-active-powerups">None</span>
+            </div>
+        </div>
+
+        <!-- Mobile Controls (Joystick) -->
+        <div id="mobile-controls">
+            <div id="joystick-handle"></div>
+        </div>
+
+        <!-- Audio Elements -->
+        <!-- NOTE: For a real production game, these audio files should be hosted on your GitHub Pages
+             or converted to base64 and embedded directly to ensure offline functionality and
+             avoid external dependencies. These are placeholders. -->
+        <audio id="bg-music" loop preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+        <audio id="sfx-pellet" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="sfx-power-pellet" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="sfx-ghost-eaten" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="sfx-pacman-death" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="sfx-game-over" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" type="audio/mpeg">
+        </audio>
+        <audio id="sfx-victory" preload="auto">
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" type="audio/mpeg">
+        </audio>
+    </div>
 
     <script>
-        // --- Lógica do Emulador e Controle ---
-        const canvas = document.getElementById('nes-canvas');
-        const ctx = canvas.getContext('2d');
-        
-        const nes = new jsnes.NES({
-            onFrame: function(buffer) {
-                const imageData = ctx.createImageData(256, 240);
-                for (let i = 0; i < buffer.length; i++) {
-                    imageData.data[i * 4] = (buffer[i] >> 16) & 0xFF;
-                    imageData.data[i * 4 + 1] = (buffer[i] >> 8) & 0xFF;
-                    imageData.data[i * 4 + 2] = buffer[i] & 0xFF;
-                    imageData.data[i * 4 + 3] = 255;
+        // --- Configuration and Constants ---
+        const GAME_WIDTH = 600;
+        const GAME_HEIGHT = 700; // Adjusted for HUD
+        const TILE_SIZE = 20;
+        const PACMAN_SPEED_BASE = 2;
+        const GHOST_SPEED_BASE = 1.8;
+        const POWER_PELLET_DURATION = 8000; // 8 seconds
+        const FRIGHTENED_FLASH_DURATION = 3000; // Last 3 seconds of frightened state
+        const FRUIT_SPAWN_TIME = 10000; // 10 seconds
+        const FRUIT_DURATION = 7000; // 7 seconds
+        const GHOST_RESPAWN_TIME = 3000; // 3 seconds
+        const PACMAN_DEATH_ANIM_DURATION = 1500; // 1.5 seconds
+        const LEVEL_UP_PAUSE = 2000; // 2 seconds
+        const MAX_LIVES = 3;
+        const MAX_HIGH_SCORES = 5;
+
+        const PELLET_SCORE = 10;
+        const POWER_PELLET_SCORE = 50;
+        const GHOST_EATEN_SCORE = [200, 400, 800, 1600]; // Multiplier for eating consecutive ghosts
+        const FRUIT_SCORES = {
+            cherry: 100, strawberry: 300, orange: 500, apple: 700,
+            melon: 1000, galaxian: 2000, bell: 3000, key: 5000
+        };
+
+        const GAME_STATES = {
+            LOADING: 'LOADING', MENU: 'MENU', PLAYING: 'PLAYING', PAUSED: 'PAUSED',
+            GAME_OVER: 'GAME_OVER', VICTORY: 'VICTORY', SETTINGS: 'SETTINGS',
+            HIGH_SCORES: 'HIGH_SCORES', DIFFICULTY: 'DIFFICULTY'
+        };
+
+        const GHOST_MODES = {
+            CHASE: 'CHASE', SCATTER: 'SCATTER', FRIGHTENED: 'FRIGHTENED',
+            EATEN: 'EATEN', HOUSE: 'HOUSE' // Inside ghost house
+        };
+
+        const DIRECTIONS = {
+            UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 },
+            LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 },
+            NONE: { x: 0, y: 0 }
+        };
+
+        // Maze representation (0: wall, 1: path, 2: pellet, 3: power pellet, 5: ghost house, 6: fruit spawn)
+        // This is a simplified Pac-Man maze.
+        const MAZE = [
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,2,2,2,2,2,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,2,2,2,2,2,0],
+            [0,2,0,0,0,0,2,0,0,0,0,0,2,0,0,2,0,0,0,0,0,2,0,0,0,0,2,0],
+            [0,3,0,0,0,0,2,0,0,0,0,0,2,0,0,2,0,0,0,0,0,2,0,0,0,0,3,0],
+            [0,2,0,0,0,0,2,0,0,0,0,0,2,0,0,2,0,0,0,0,0,2,0,0,0,0,2,0],
+            [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+            [0,2,0,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,2,0],
+            [0,2,0,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,2,0],
+            [0,2,2,2,2,2,2,0,0,2,2,2,2,0,0,2,2,2,2,0,0,2,2,2,2,2,2,0],
+            [0,0,0,0,0,0,2,0,0,0,0,0,1,1,1,1,0,0,0,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,0,0,0,1,5,5,1,0,0,0,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,1,1,1,1,5,5,1,1,1,1,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,1,5,5,5,5,5,5,5,5,1,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,1,5,5,5,5,5,5,5,5,1,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,1,1,1,1,1,1,1,1,1,1,0,0,2,0,0,0,0,0,0],
+            [0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0],
+            [0,2,2,2,2,2,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,2,2,2,2,2,0],
+            [0,2,0,0,0,0,2,0,0,0,0,0,2,0,0,2,0,0,0,0,0,2,0,0,0,0,2,0],
+            [0,2,2,2,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,2,2,2,0],
+            [0,0,0,2,0,0,2,0,0,2,0,0,0,0,0,0,0,0,2,0,0,2,0,0,2,0,0,0],
+            [0,0,0,2,0,0,2,0,0,2,0,0,0,0,0,0,0,0,2,0,0,2,0,0,2,0,0,0],
+            [0,2,2,2,2,2,2,0,0,2,2,2,2,0,0,2,2,2,2,0,0,2,2,2,2,2,2,0],
+            [0,2,0,0,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,0,0,2,0],
+            [0,3,0,0,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,0,0,3,0],
+            [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        ];
+
+        // Initial positions
+        const PACMAN_START_POS = { x: 13.5, y: 20.5 }; // Centered in a tile
+        const GHOST_START_POSITIONS = [
+            { x: 13.5, y: 11.5, color: 'red', name: 'Blinky' },
+            { x: 11.5, y: 13.5, color: 'pink', name: 'Pinky' },
+            { x: 13.5, y: 13.5, color: 'cyan', name: 'Inky' },
+            { x: 15.5, y: 13.5, color: 'orange', name: 'Clyde' }
+        ];
+        const GHOST_HOUSE_EXIT = { x: 13.5, y: 11.5 };
+        const GHOST_SCATTER_TARGETS = {
+            Blinky: { x: MAZE[0].length - 2, y: 1 },
+            Pinky: { x: 1, y: 1 },
+            Inky: { x: MAZE[0].length - 2, y: MAZE.length - 2 },
+            Clyde: { x: 1, y: MAZE.length - 2 }
+        };
+
+        // --- Game Variables ---
+        let canvas, ctx;
+        let currentGameState = GAME_STATES.LOADING;
+        let lastFrameTime = 0;
+        let deltaTime = 0; // Time in milliseconds since last frame
+        let fps = 0;
+        let frameCount = 0;
+        let lastFpsUpdateTime = 0;
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('pacmanHighScore') || '0');
+        let lives = MAX_LIVES;
+        let level = 1;
+        let pelletsEaten = 0;
+        let totalPellets = 0;
+        let gameMap = []; // Dynamic map for current level
+
+        let pacman;
+        let ghosts = [];
+        let fruits = [];
+        let activePowerUps = []; // { type: 'turbo', duration: 5000, startTime: Date.now() }
+        let ghostEatenMultiplier = 0; // For consecutive ghost eating
+
+        let isMobile = /Mobi|Android/i.test(navigator.userAgent);
+        let gamepadIndex = -1;
+        let joystick = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, radius: 80, handleRadius: 30 };
+
+        let audioSettings = {
+            musicVolume: parseFloat(localStorage.getItem('musicVolume') || '0.5'),
+            sfxVolume: parseFloat(localStorage.getItem('sfxVolume') || '0.7'),
+            musicMuted: localStorage.getItem('musicMuted') === 'true',
+            sfxMuted: localStorage.getItem('sfxMuted') === 'true'
+        };
+
+        let difficulty = localStorage.getItem('difficulty') || 'normal'; // easy, normal, hard
+
+        // --- Asset Loading (Simplified) ---
+        // For this single-file example, we'll use simple colors for sprites and placeholder URLs for audio.
+        const ASSETS = {
+            // Sprites (using simple colors for now)
+            pacmanColor: var_to_rgb('--neon-yellow'),
+            ghostColors: {
+                Blinky: var_to_rgb('--neon-red'),
+                Pinky: var_to_rgb('--neon-pink'),
+                Inky: var_to_rgb('--neon-cyan'),
+                Clyde: var_to_rgb('--neon-orange')
+            },
+            frightenedGhostColor: 'rgba(0, 0, 255, 0.8)', // Blue
+            frightenedGhostFlashColor: 'rgba(255, 255, 255, 0.8)', // White
+            eatenGhostColor: 'rgba(128, 128, 128, 0.8)', // Grey
+            pelletColor: 'rgba(255, 255, 255, 0.8)',
+            powerPelletColor: var_to_rgb('--neon-yellow'),
+            wallColor: var_to_rgb('--neon-blue'),
+            fruitColors: {
+                cherry: 'red', strawberry: 'pink', orange: 'orange', apple: 'green',
+                melon: 'lightgreen', galaxian: 'purple', bell: 'gold', key: 'silver'
+            },
+
+            // Audio (placeholder URLs)
+            bgMusic: document.getElementById('bg-music'),
+            sfxPellet: document.getElementById('sfx-pellet'),
+            sfxPowerPellet: document.getElementById('sfx-power-pellet'),
+            sfxGhostEaten: document.getElementById('sfx-ghost-eaten'),
+            sfxPacmanDeath: document.getElementById('sfx-pacman-death'),
+            sfxGameOver: document.getElementById('sfx-game-over'),
+            sfxVictory: document.getElementById('sfx-victory')
+        };
+
+        // Helper to convert CSS variable to RGB for canvas drawing
+        function var_to_rgb(cssVar) {
+            const style = getComputedStyle(document.documentElement);
+            const color = style.getPropertyValue(cssVar).trim();
+            if (color.startsWith('#')) {
+                const r = parseInt(color.substring(1, 3), 16);
+                const g = parseInt(color.substring(3, 5), 16);
+                const b = parseInt(color.substring(5, 7), 16);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            return color; // Return as is if not hex (e.g., 'red', 'blue')
+        }
+
+        // --- Game Objects ---
+
+        class Entity {
+            constructor(x, y, radius, speed, direction) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.speed = speed;
+                this.direction = direction;
+                this.nextDirection = direction;
+                this.targetTile = { x: Math.floor(x), y: Math.floor(y) };
+                this.currentTile = { x: Math.floor(x), y: Math.floor(y) };
+            }
+
+            // Update current and target tiles based on position
+            updateTiles() {
+                this.currentTile.x = Math.floor(this.x);
+                this.currentTile.y = Math.floor(this.y);
+                this.targetTile.x = Math.floor(this.x + this.direction.x * 0.5); // Look slightly ahead
+                this.targetTile.y = Math.floor(this.y + this.direction.y * 0.5);
+            }
+
+            // Check if a tile is a wall
+            isWall(x, y) {
+                const tileX = Math.floor(x);
+                const tileY = Math.floor(y);
+                if (tileX < 0 || tileX >= MAZE[0].length || tileY < 0 || tileY >= MAZE.length) {
+                    return true; // Out of bounds is a wall
                 }
-                ctx.putImageData(imageData, 0, 0);
+                return gameMap[tileY][tileX] === 0;
             }
+
+            // Check if entity can move in a given direction
+            canMove(dir) {
+                // Check collision with walls at the corners of the entity's bounding box
+                const halfSize = this.radius / TILE_SIZE * 0.8; // Slightly smaller than radius for better collision
+                const checkPoints = [
+                    { x: this.x + dir.x * halfSize, y: this.y + dir.y * halfSize },
+                    { x: this.x + dir.x * halfSize, y: this.y + dir.y * halfSize },
+                    { x: this.x + dir.x * halfSize, y: this.y + dir.y * halfSize },
+                    { x: this.x + dir.x * halfSize, y: this.y + dir.y * halfSize }
+                ];
+
+                // For more precise collision, check points around the entity's circumference
+                const numPoints = 8;
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const checkX = this.x + Math.cos(angle) * halfSize + dir.x * this.speed * deltaTime / 1000;
+                    const checkY = this.y + Math.sin(angle) * halfSize + dir.y * this.speed * deltaTime / 1000;
+                    if (this.isWall(checkX, checkY)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // Move the entity
+            move() {
+                // Try to change direction if requested and possible
+                if (this.nextDirection !== this.direction && this.canMove(this.nextDirection)) {
+                    // Snap to grid center before turning
+                    if (this.direction.x !== 0 && Math.abs(this.y - (this.currentTile.y + 0.5)) < 0.1) {
+                        this.y = this.currentTile.y + 0.5;
+                    }
+                    if (this.direction.y !== 0 && Math.abs(this.x - (this.currentTile.x + 0.5)) < 0.1) {
+                        this.x = this.currentTile.x + 0.5;
+                    }
+                    this.direction = this.nextDirection;
+                }
+
+                // If current direction is a wall, stop
+                if (!this.canMove(this.direction)) {
+                    this.direction = DIRECTIONS.NONE;
+                }
+
+                this.x += this.direction.x * this.speed * deltaTime / 1000;
+                this.y += this.direction.y * this.speed * deltaTime / 1000;
+
+                // Wrap around logic (for tunnels)
+                if (this.x < -0.5) this.x = MAZE[0].length - 0.5;
+                if (this.x > MAZE[0].length - 0.5) this.x = -0.5;
+
+                this.updateTiles();
+            }
+        }
+
+        class PacMan extends Entity {
+            constructor(x, y) {
+                super(x, y, TILE_SIZE * 0.4, PACMAN_SPEED_BASE, DIRECTIONS.LEFT);
+                this.mouthOpen = 0; // 0 to 1, for animation
+                this.mouthDirection = 1; // 1 for opening, -1 for closing
+                this.isDying = false;
+                this.deathAnimationTime = 0;
+                this.powerUpTimer = 0;
+                this.turboActive = false;
+                this.shieldActive = false;
+                this.invincibleActive = false;
+                this.scoreMultiplier = 1;
+            }
+
+            update() {
+                if (this.isDying) {
+                    this.deathAnimationTime += deltaTime;
+                    if (this.deathAnimationTime >= PACMAN_DEATH_ANIM_DURATION) {
+                        this.isDying = false;
+                        lives--;
+                        if (lives <= 0) {
+                            setGameState(GAME_STATES.GAME_OVER);
+                        } else {
+                            resetLevel();
+                        }
+                    }
+                    return;
+                }
+
+                this.move();
+
+                // Mouth animation
+                this.mouthOpen += this.mouthDirection * 0.1;
+                if (this.mouthOpen > 1 || this.mouthOpen < 0) {
+                    this.mouthDirection *= -1;
+                    this.mouthOpen = Math.max(0, Math.min(1, this.mouthOpen));
+                }
+
+                // Power-up timers
+                if (this.powerUpTimer > 0) {
+                    this.powerUpTimer -= deltaTime;
+                    if (this.powerUpTimer <= 0) {
+                        this.powerUpTimer = 0;
+                        this.turboActive = false;
+                        this.shieldActive = false;
+                        this.invincibleActive = false;
+                        this.scoreMultiplier = 1;
+                        ghostEatenMultiplier = 0; // Reset ghost multiplier
+                        ghosts.forEach(ghost => ghost.setMode(GHOST_MODES.CHASE)); // Ghosts return to normal
+                    }
+                }
+
+                // Update speed based on turbo
+                this.speed = PACMAN_SPEED_BASE * (1 + (level - 1) * 0.1) * (this.turboActive ? 1.5 : 1) * getDifficultyMultiplier().pacmanSpeed;
+            }
+
+            draw() {
+                if (this.isDying) {
+                    this.drawDeathAnimation();
+                    return;
+                }
+
+                ctx.save();
+                ctx.translate((this.x + 0.5) * TILE_SIZE, (this.y + 0.5) * TILE_SIZE);
+
+                let angle = 0;
+                if (this.direction === DIRECTIONS.RIGHT) angle = 0;
+                else if (this.direction === DIRECTIONS.LEFT) angle = Math.PI;
+                else if (this.direction === DIRECTIONS.UP) angle = -Math.PI / 2;
+                else if (this.direction === DIRECTIONS.DOWN) angle = Math.PI / 2;
+
+                ctx.rotate(angle);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, this.mouthOpen * 0.75 * Math.PI, (2 - this.mouthOpen * 0.75) * Math.PI);
+                ctx.lineTo(0, 0);
+                ctx.closePath();
+                ctx.fillStyle = ASSETS.pacmanColor;
+                ctx.shadowColor = ASSETS.pacmanColor;
+                ctx.shadowBlur = 15;
+                ctx.fill();
+
+                // Shield effect
+                if (this.shieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius * 1.5, 0, Math.PI * 2);
+                    ctx.strokeStyle = var_to_rgb('--neon-green');
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = var_to_rgb('--neon-green');
+                    ctx.shadowBlur = 20;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            drawDeathAnimation() {
+                ctx.save();
+                ctx.translate((this.x + 0.5) * TILE_SIZE, (this.y + 0.5) * TILE_SIZE);
+
+                const progress = this.deathAnimationTime / PACMAN_DEATH_ANIM_DURATION;
+                const radius = this.radius * (1 + progress * 2); // Expand
+                const alpha = 1 - progress; // Fade out
+
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
+                ctx.shadowColor = `rgba(255, 255, 0, ${alpha})`;
+                ctx.shadowBlur = 20 * alpha;
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            startDeath() {
+                this.isDying = true;
+                this.deathAnimationTime = 0;
+                playSfx(ASSETS.sfxPacmanDeath);
+                // Camera shake
+                canvas.style.transform = 'translate(5px, 5px)';
+                setTimeout(() => canvas.style.transform = 'translate(0, 0)', 100);
+            }
+
+            activatePowerUp(type, duration) {
+                this.powerUpTimer = duration;
+                switch (type) {
+                    case 'powerPellet':
+                        this.invincibleActive = true;
+                        ghosts.forEach(ghost => ghost.setMode(GHOST_MODES.FRIGHTENED));
+                        ghostEatenMultiplier = 0; // Reset multiplier for new power pellet
+                        break;
+                    case 'turbo':
+                        this.turboActive = true;
+                        break;
+                    case 'shield':
+                        this.shieldActive = true;
+                        break;
+                    case 'invincible': // A separate, longer invincibility
+                        this.invincibleActive = true;
+                        break;
+                    case 'scoreMultiplier':
+                        this.scoreMultiplier = 2; // Example multiplier
+                        break;
+                }
+                activePowerUps.push({ type: type, endTime: Date.now() + duration });
+            }
+        }
+
+        class Ghost extends Entity {
+            constructor(x, y, color, name) {
+                super(x, y, TILE_SIZE * 0.4, GHOST_SPEED_BASE, DIRECTIONS.UP);
+                this.initialPos = { x, y };
+                this.color = color;
+                this.name = name;
+                this.mode = GHOST_MODES.HOUSE;
+                this.scatterTarget = GHOST_SCATTER_TARGETS[name];
+                this.frightenedTimer = 0;
+                this.respawnTimer = 0;
+                this.targetTile = { x: 0, y: 0 }; // Target tile for pathfinding
+                this.path = []; // Path from pathfinding algorithm
+                this.lastModeChangeTime = 0;
+                this.modeDuration = 7000; // Scatter/Chase duration
+                this.scatterCount = 0; // How many times it scattered
+            }
+
+            setMode(newMode) {
+                if (this.mode === GHOST_MODES.EATEN && newMode !== GHOST_MODES.HOUSE) return; // Eaten ghosts only go to house
+                if (this.mode === newMode) return; // No change needed
+
+                this.mode = newMode;
+                this.lastModeChangeTime = Date.now();
+
+                if (newMode === GHOST_MODES.FRIGHTENED) {
+                    this.frightenedTimer = POWER_PELLET_DURATION;
+                    // Reverse direction when frightened
+                    this.direction = { x: -this.direction.x, y: -this.direction.y };
+                    this.nextDirection = this.direction;
+                } else if (newMode === GHOST_MODES.EATEN) {
+                    this.speed = GHOST_SPEED_BASE * 2; // Faster when eaten
+                } else {
+                    this.speed = GHOST_SPEED_BASE * (1 + (level - 1) * 0.1) * getDifficultyMultiplier().ghostSpeed;
+                }
+            }
+
+            update() {
+                if (this.respawnTimer > 0) {
+                    this.respawnTimer -= deltaTime;
+                    if (this.respawnTimer <= 0) {
+                        this.respawnTimer = 0;
+                        this.x = this.initialPos.x;
+                        this.y = this.initialPos.y;
+                        this.setMode(GHOST_MODES.HOUSE);
+                    }
+                    return;
+                }
+
+                // Handle ghost house logic
+                if (this.mode === GHOST_MODES.HOUSE) {
+                    // Move towards the ghost house exit
+                    const exitX = GHOST_HOUSE_EXIT.x;
+                    const exitY = GHOST_HOUSE_EXIT.y;
+
+                    if (Math.abs(this.x - exitX) < 0.1 && Math.abs(this.y - exitY) < 0.1) {
+                        this.x = exitX;
+                        this.y = exitY;
+                        this.setMode(GHOST_MODES.CHASE); // Exit house and start chasing
+                    } else {
+                        // Simple movement towards exit
+                        if (this.x < exitX) this.x += this.speed * deltaTime / 1000;
+                        else if (this.x > exitX) this.x -= this.speed * deltaTime / 1000;
+                        if (this.y < exitY) this.y += this.speed * deltaTime / 1000;
+                        else if (this.y > exitY) this.y -= this.speed * deltaTime / 1000;
+                    }
+                    return;
+                }
+
+                // Frightened timer
+                if (this.mode === GHOST_MODES.FRIGHTENED) {
+                    this.frightenedTimer -= deltaTime;
+                    if (this.frightenedTimer <= 0) {
+                        this.setMode(GHOST_MODES.CHASE); // Back to chase mode
+                    }
+                }
+
+                // Mode switching (Chase/Scatter)
+                if (this.mode === GHOST_MODES.CHASE || this.mode === GHOST_MODES.SCATTER) {
+                    const now = Date.now();
+                    if (now - this.lastModeChangeTime > this.modeDuration) {
+                        if (this.mode === GHOST_MODES.CHASE) {
+                            this.setMode(GHOST_MODES.SCATTER);
+                            this.scatterCount++;
+                            this.modeDuration = (this.scatterCount < 4) ? 5000 : 1000; // Shorter scatter after a few cycles
+                        } else {
+                            this.setMode(GHOST_MODES.CHASE);
+                            this.modeDuration = 20000; // Longer chase
+                        }
+                    }
+                }
+
+                this.determineTarget();
+                this.findPathAndMove();
+            }
+
+            determineTarget() {
+                const pacmanTile = pacman.currentTile;
+                const pacmanDir = pacman.direction;
+
+                switch (this.mode) {
+                    case GHOST_MODES.CHASE:
+                        switch (this.name) {
+                            case 'Blinky': // Red: Targets Pac-Man directly
+                                this.targetTile = { x: pacmanTile.x, y: pacmanTile.y };
+                                break;
+                            case 'Pinky': // Pink: Targets 4 tiles ahead of Pac-Man
+                                this.targetTile = {
+                                    x: pacmanTile.x + pacmanDir.x * 4,
+                                    y: pacmanTile.y + pacmanDir.y * 4
+                                };
+                                // Special case for UP direction in original Pac-Man
+                                if (pacmanDir === DIRECTIONS.UP) {
+                                    this.targetTile.x -= 4;
+                                }
+                                break;
+                            case 'Inky': // Cyan: Complex, uses Blinky's position
+                                const blinky = ghosts.find(g => g.name === 'Blinky');
+                                if (blinky) {
+                                    const targetX = pacmanTile.x + pacmanDir.x * 2;
+                                    const targetY = pacmanTile.y + pacmanDir.y * 2;
+                                    this.targetTile = {
+                                        x: targetX + (targetX - blinky.currentTile.x),
+                                        y: targetY + (targetY - blinky.currentTile.y)
+                                    };
+                                } else {
+                                    this.targetTile = { x: pacmanTile.x, y: pacmanTile.y }; // Fallback
+                                }
+                                break;
+                            case 'Clyde': // Orange: Targets Pac-Man if far, scatters if close
+                                const distance = Math.sqrt(
+                                    Math.pow(this.currentTile.x - pacmanTile.x, 2) +
+                                    Math.pow(this.currentTile.y - pacmanTile.y, 2)
+                                );
+                                if (distance > 8) { // If more than 8 tiles away
+                                    this.targetTile = { x: pacmanTile.x, y: pacmanTile.y };
+                                } else {
+                                    this.targetTile = this.scatterTarget;
+                                }
+                                break;
+                        }
+                        break;
+                    case GHOST_MODES.SCATTER:
+                        this.targetTile = this.scatterTarget;
+                        break;
+                    case GHOST_MODES.FRIGHTENED:
+                        // Move randomly
+                        this.targetTile = {
+                            x: Math.floor(Math.random() * MAZE[0].length),
+                            y: Math.floor(Math.random() * MAZE.length)
+                        };
+                        break;
+                    case GHOST_MODES.EATEN:
+                        this.targetTile = GHOST_HOUSE_EXIT;
+                        break;
+                }
+            }
+
+            findPathAndMove() {
+                const currentTile = this.currentTile;
+                const targetTile = this.targetTile;
+
+                // Simple pathfinding (BFS) to find the next best direction
+                let bestDirection = this.direction;
+                let minDistance = Infinity;
+
+                const possibleDirections = [DIRECTIONS.UP, DIRECTIONS.DOWN, DIRECTIONS.LEFT, DIRECTIONS.RIGHT];
+
+                // Filter out the reverse direction unless frightened or eaten
+                const forbiddenDir = { x: -this.direction.x, y: -this.direction.y };
+
+                for (const dir of possibleDirections) {
+                    if (dir.x === forbiddenDir.x && dir.y === forbiddenDir.y &&
+                        this.mode !== GHOST_MODES.FRIGHTENED && this.mode !== GHOST_MODES.EATEN) {
+                        continue;
+                    }
+
+                    const nextX = currentTile.x + dir.x;
+                    const nextY = currentTile.y + dir.y;
+
+                    // Avoid ghost house walls (0) and ghost house interior (5) unless eaten and going to house
+                    if (!this.isWall(nextX, nextY) && !(gameMap[nextY][nextX] === 5 && this.mode !== GHOST_MODES.EATEN)) {
+                        const dist = Math.sqrt(
+                            Math.pow(nextX - targetTile.x, 2) +
+                            Math.pow(nextY - targetTile.y, 2)
+                        );
+
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            bestDirection = dir;
+                        }
+                    }
+                }
+
+                this.nextDirection = bestDirection;
+                this.move();
+            }
+
+
+            draw() {
+                ctx.save();
+                ctx.translate((this.x + 0.5) * TILE_SIZE, (this.y + 0.5) * TILE_SIZE);
+
+                let ghostColor = this.color;
+                let shadowColor = this.color;
+
+                if (this.mode === GHOST_MODES.FRIGHTENED) {
+                    if (this.frightenedTimer < FRIGHTENED_FLASH_DURATION && Math.floor(this.frightenedTimer / 200) % 2 === 0) {
+                        ghostColor = ASSETS.frightenedGhostFlashColor;
+                        shadowColor = ASSETS.frightenedGhostFlashColor;
+                    } else {
+                        ghostColor = ASSETS.frightenedGhostColor;
+                        shadowColor = ASSETS.frightenedGhostColor;
+                    }
+                } else if (this.mode === GHOST_MODES.EATEN) {
+                    ghostColor = ASSETS.eatenGhostColor;
+                    shadowColor = ASSETS.eatenGhostColor;
+                }
+
+                // Body
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, Math.PI, 0, false);
+                ctx.lineTo(this.radius, this.radius);
+                ctx.lineTo(-this.radius, this.radius);
+                ctx.closePath();
+                ctx.fillStyle = ghostColor;
+                ctx.shadowColor = shadowColor;
+                ctx.shadowBlur = 15;
+                ctx.fill();
+
+                // Eyes
+                ctx.beginPath();
+                ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.arc(this.radius * 0.3, -this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.shadowBlur = 0; // No shadow for eyes
+                ctx.fill();
+
+                // Pupils (direction-based)
+                let pupilX = this.direction.x * this.radius * 0.1;
+                let pupilY = this.direction.y * this.radius * 0.1;
+                if (this.mode === GHOST_MODES.EATEN) { // Eyes only when eaten
+                    pupilX = 0; pupilY = 0; // Center pupils when eaten
+                }
+                ctx.beginPath();
+                ctx.arc(-this.radius * 0.3 + pupilX, -this.radius * 0.3 + pupilY, this.radius * 0.1, 0, Math.PI * 2);
+                ctx.arc(this.radius * 0.3 + pupilX, this.radius * 0.3 + pupilY, this.radius * 0.1, 0, Math.PI * 2);
+                ctx.fillStyle = 'black';
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            eat() {
+                this.setMode(GHOST_MODES.EATEN);
+                this.respawnTimer = GHOST_RESPAWN_TIME;
+                playSfx(ASSETS.sfxGhostEaten);
+            }
+        }
+
+        class Fruit {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.score = FRUIT_SCORES[type];
+                this.radius = TILE_SIZE * 0.3;
+                this.spawnTime = Date.now();
+                this.duration = FRUIT_DURATION;
+            }
+
+            update() {
+                if (Date.now() - this.spawnTime > this.duration) {
+                    return false; // Expired
+                }
+                return true;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate((this.x + 0.5) * TILE_SIZE, (this.y + 0.5) * TILE_SIZE);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = ASSETS.fruitColors[this.type];
+                ctx.shadowColor = ASSETS.fruitColors[this.type];
+                ctx.shadowBlur = 10;
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // --- Game Logic ---
+
+        function initGame() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            setupAudio();
+            setupInput();
+            loadHighScores();
+            updateDifficultyUI();
+
+            // Initial game state
+            setGameState(GAME_STATES.LOADING);
+            // Simulate loading time
+            setTimeout(() => setGameState(GAME_STATES.MENU), 1000);
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+
+            const aspectRatio = GAME_WIDTH / GAME_HEIGHT;
+            let newWidth = containerWidth;
+            let newHeight = containerWidth / aspectRatio;
+
+            if (newHeight > containerHeight) {
+                newHeight = containerHeight;
+                newWidth = containerHeight * aspectRatio;
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            // Scale context to fit the new canvas size while maintaining game coordinates
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+            ctx.scale(canvas.width / GAME_WIDTH, canvas.height / GAME_HEIGHT);
+        }
+
+        function startGame() {
+            score = 0;
+            lives = MAX_LIVES;
+            level = 1;
+            pelletsEaten = 0;
+            ghostEatenMultiplier = 0;
+            activePowerUps = [];
+            initLevel();
+            setGameState(GAME_STATES.PLAYING);
+            playMusic(ASSETS.bgMusic);
+        }
+
+        function continueGame() {
+            // Load saved game state from localStorage if implemented
+            // For now, just start a new game
+            startGame();
+        }
+
+        function initLevel() {
+            // Deep copy the MAZE to gameMap for current level
+            gameMap = MAZE.map(row => [...row]);
+            totalPellets = 0;
+            pelletsEaten = 0;
+
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
+                    if (gameMap[y][x] === 2 || gameMap[y][x] === 3) {
+                        totalPellets++;
+                    }
+                }
+            }
+
+            pacman = new PacMan(PACMAN_START_POS.x, PACMAN_START_POS.y);
+            ghosts = GHOST_START_POSITIONS.map(g => new Ghost(g.x, g.y, ASSETS.ghostColors[g.name], g.name));
+            fruits = [];
+
+            // Adjust ghost speed and behavior based on level and difficulty
+            ghosts.forEach(ghost => {
+                ghost.speed = GHOST_SPEED_BASE * (1 + (level - 1) * 0.1) * getDifficultyMultiplier().ghostSpeed;
+                ghost.setMode(GHOST_MODES.HOUSE); // All ghosts start in house
+            });
+
+            // Start fruit spawning timer
+            if (window.fruitSpawnInterval) clearInterval(window.fruitSpawnInterval);
+            window.fruitSpawnInterval = setInterval(spawnFruit, FRUIT_SPAWN_TIME);
+        }
+
+        function resetLevel() {
+            // Reset Pac-Man and ghosts to initial positions
+            pacman = new PacMan(PACMAN_START_POS.x, PACMAN_START_POS.y);
+            ghosts = GHOST_START_POSITIONS.map(g => new Ghost(g.x, g.y, ASSETS.ghostColors[g.name], g.name));
+            ghosts.forEach(ghost => ghost.setMode(GHOST_MODES.HOUSE));
+            activePowerUps = [];
+            ghostEatenMultiplier = 0;
+            // Keep existing pellets, only reset entities
+            setGameState(GAME_STATES.PLAYING);
+        }
+
+        function update(time) {
+            deltaTime = time - lastFrameTime;
+            lastFrameTime = time;
+
+            // Calculate FPS
+            frameCount++;
+            if (time - lastFpsUpdateTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFpsUpdateTime = time;
+            }
+
+            if (currentGameState === GAME_STATES.PLAYING) {
+                pacman.update();
+                ghosts.forEach(ghost => ghost.update());
+                fruits = fruits.filter(fruit => fruit.update()); // Remove expired fruits
+
+                checkCollisions();
+                checkPellets();
+                checkLevelCompletion();
+            }
+
+            updateHUD();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            if (currentGameState === GAME_STATES.PLAYING || currentGameState === GAME_STATES.PAUSED ||
+                currentGameState === GAME_STATES.GAME_OVER || currentGameState === GAME_STATES.VICTORY) {
+                drawMaze();
+                drawPellets();
+                fruits.forEach(fruit => fruit.draw());
+                pacman.draw();
+                ghosts.forEach(ghost => ghost.draw());
+            }
+        }
+
+        function gameLoop(time) {
+            requestAnimationFrame(gameLoop);
+
+            update(time);
+            draw();
+        }
+
+        function drawMaze() {
+            for (let y = 0; y < MAZE.length; y++) {
+                for (let x = 0; x < MAZE[y].length; x++) {
+                    if (gameMap[y][x] === 0) { // Wall
+                        ctx.fillStyle = ASSETS.wallColor;
+                        ctx.shadowColor = ASSETS.wallColor;
+                        ctx.shadowBlur = 10;
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            ctx.shadowBlur = 0; // Reset shadow after drawing walls
+        }
+
+        function drawPellets() {
+            for (let y = 0; y < MAZE.length; y++) {
+                for (let x = 0; x < MAZE[y].length; x++) {
+                    if (gameMap[y][x] === 2) { // Pellet
+                        ctx.beginPath();
+                        ctx.arc((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, TILE_SIZE * 0.15, 0, Math.PI * 2);
+                        ctx.fillStyle = ASSETS.pelletColor;
+                        ctx.shadowColor = ASSETS.pelletColor;
+                        ctx.shadowBlur = 5;
+                        ctx.fill();
+                    } else if (gameMap[y][x] === 3) { // Power Pellet
+                        ctx.beginPath();
+                        ctx.arc((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, TILE_SIZE * 0.3, 0, Math.PI * 2);
+                        ctx.fillStyle = ASSETS.powerPelletColor;
+                        ctx.shadowColor = ASSETS.powerPelletColor;
+                        ctx.shadowBlur = 10;
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function checkPellets() {
+            const px = Math.floor(pacman.x);
+            const py = Math.floor(pacman.y);
+
+            if (px >= 0 && px < MAZE[0].length && py >= 0 && py < MAZE.length) {
+                if (gameMap[py][px] === 2) { // Regular pellet
+                    gameMap[py][px] = 1; // Mark as eaten
+                    score += PELLET_SCORE * pacman.scoreMultiplier;
+                    pelletsEaten++;
+                    playSfx(ASSETS.sfxPellet);
+                } else if (gameMap[py][px] === 3) { // Power pellet
+                    gameMap[py][px] = 1; // Mark as eaten
+                    score += POWER_PELLET_SCORE * pacman.scoreMultiplier;
+                    pelletsEaten++;
+                    pacman.activatePowerUp('powerPellet', POWER_PELLET_DURATION);
+                    playSfx(ASSETS.sfxPowerPellet);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            // Pac-Man and Ghost collisions
+            for (const ghost of ghosts) {
+                if (ghost.mode === GHOST_MODES.EATEN || ghost.mode === GHOST_MODES.HOUSE) continue;
+
+                const dist = Math.sqrt(
+                    Math.pow(pacman.x - ghost.x, 2) +
+                    Math.pow(pacman.y - ghost.y, 2)
+                );
+
+                if (dist < (pacman.radius + ghost.radius) / TILE_SIZE * 0.8) { // Collision detected
+                    if (ghost.mode === GHOST_MODES.FRIGHTENED) {
+                        ghostEatenMultiplier++;
+                        score += GHOST_EATEN_SCORE[Math.min(ghostEatenMultiplier - 1, GHOST_EATEN_SCORE.length - 1)] * pacman.scoreMultiplier;
+                        ghost.eat();
+                    } else {
+                        if (pacman.invincibleActive || pacman.shieldActive) {
+                            // Pac-Man is protected, ghost just bounces off or is ignored
+                            // For simplicity, we'll just ignore collision if invincible/shielded
+                        } else {
+                            pacman.startDeath();
+                            setGameState(GAME_STATES.PAUSED); // Pause game during death animation
+                            setTimeout(() => {
+                                if (lives > 0) {
+                                    setGameState(GAME_STATES.PLAYING);
+                                }
+                            }, PACMAN_DEATH_ANIM_DURATION);
+                            return; // Stop checking collisions if Pac-Man died
+                        }
+                    }
+                }
+            }
+
+            // Pac-Man and Fruit collisions
+            for (let i = fruits.length - 1; i >= 0; i--) {
+                const fruit = fruits[i];
+                const dist = Math.sqrt(
+                    Math.pow(pacman.x - fruit.x, 2) +
+                    Math.pow(pacman.y - fruit.y, 2)
+                );
+
+                if (dist < (pacman.radius + fruit.radius) / TILE_SIZE * 0.8) {
+                    score += fruit.score * pacman.scoreMultiplier;
+                    fruits.splice(i, 1); // Remove fruit
+                    playSfx(ASSETS.sfxPellet); // Use pellet sound for fruit for simplicity
+                    // Add a temporary power-up based on fruit type (e.g., cherry for turbo)
+                    if (fruit.type === 'cherry') pacman.activatePowerUp('turbo', 5000);
+                    if (fruit.type === 'strawberry') pacman.activatePowerUp('shield', 7000);
+                    if (fruit.type === 'key') pacman.activatePowerUp('invincible', 10000);
+                }
+            }
+        }
+
+        function checkLevelCompletion() {
+            if (pelletsEaten >= totalPellets) {
+                level++;
+                saveHighScore(score);
+                playSfx(ASSETS.sfxVictory);
+                setGameState(GAME_STATES.VICTORY);
+                setTimeout(() => {
+                    if (level <= 3) { // Example: 3 levels
+                        initLevel();
+                        setGameState(GAME_STATES.PLAYING);
+                    } else {
+                        // Game completed!
+                        setGameState(GAME_STATES.MENU); // Or a final victory screen
+                    }
+                }, LEVEL_UP_PAUSE);
+            }
+        }
+
+        function spawnFruit() {
+            // Find a random empty path tile not too close to Pac-Man
+            let attempts = 0;
+            while (attempts < 100) {
+                const randX = Math.floor(Math.random() * MAZE[0].length);
+                const randY = Math.floor(Math.random() * MAZE.length);
+
+                if (gameMap[randY][randX] === 1) { // Empty path
+                    const distToPacman = Math.sqrt(
+                        Math.pow(randX - pacman.currentTile.x, 2) +
+                        Math.pow(randY - pacman.currentTile.y, 2)
+                    );
+                    if (distToPacman > 5) { // Ensure fruit is not too close to Pac-Man
+                        const fruitTypes = Object.keys(FRUIT_SCORES);
+                        const randomType = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+                        fruits.push(new Fruit(randX, randY, randomType));
+                        return;
+                    }
+                }
+                attempts++;
+            }
+        }
+
+        // --- UI Management ---
+
+        function setGameState(newState) {
+            currentGameState = newState;
+            // Hide all UI screens
+            document.querySelectorAll('.ui-screen').forEach(screen => screen.classList.remove('active'));
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('mobile-controls').classList.remove('active');
+
+            // Show relevant UI
+            switch (currentGameState) {
+                case GAME_STATES.LOADING:
+                    document.getElementById('loading-screen').classList.add('active');
+                    break;
+                case GAME_STATES.MENU:
+                    document.getElementById('main-menu').classList.add('active');
+                    document.getElementById('continue-button').style.display = localStorage.getItem('pacmanSavedGame') ? 'block' : 'none';
+                    stopMusic(ASSETS.bgMusic);
+                    break;
+                case GAME_STATES.PLAYING:
+                    document.getElementById('hud').style.display = 'flex';
+                    if (isMobile) {
+                        document.getElementById('mobile-controls').classList.add('active');
+                    }
+                    break;
+                case GAME_STATES.PAUSED:
+                    document.getElementById('pause-menu').classList.add('active');
+                    break;
+                case GAME_STATES.GAME_OVER:
+                    document.getElementById('gameover-screen').classList.add('active');
+                    document.getElementById('gameover-score').textContent = `Score: ${score}`;
+                    saveHighScore(score);
+                    stopMusic(ASSETS.bgMusic);
+                    playSfx(ASSETS.sfxGameOver);
+                    break;
+                case GAME_STATES.VICTORY:
+                    document.getElementById('victory-screen').classList.add('active');
+                    document.getElementById('victory-score').textContent = `Score: ${score}`;
+                    saveHighScore(score);
+                    stopMusic(ASSETS.bgMusic);
+                    playSfx(ASSETS.sfxVictory);
+                    break;
+                case GAME_STATES.SETTINGS:
+                    document.getElementById('settings-screen').classList.add('active');
+                    break;
+                case GAME_STATES.HIGH_SCORES:
+                    document.getElementById('highscores-screen').classList.add('active');
+                    displayHighScores();
+                    break;
+                case GAME_STATES.DIFFICULTY:
+                    document.getElementById('difficulty-screen').classList.add('active');
+                    break;
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').textContent = score;
+            document.getElementById('hud-high-score').textContent = highScore;
+            document.getElementById('hud-lives').textContent = lives;
+            document.getElementById('hud-level').textContent = level;
+            document.getElementById('hud-fps').textContent = fps;
+
+            let powerUpText = [];
+            if (pacman.turboActive) powerUpText.push('Turbo');
+            if (pacman.shieldActive) powerUpText.push('Shield');
+            if (pacman.invincibleActive) powerUpText.push('Invincible');
+            if (pacman.scoreMultiplier > 1) powerUpText.push(`x${pacman.scoreMultiplier} Score`);
+            document.getElementById('hud-active-powerups').textContent = powerUpText.length > 0 ? powerUpText.join(', ') : 'None';
+        }
+
+        // --- Input Handling ---
+
+        function setupInput() {
+            // Keyboard
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+
+            // Touch (Mobile Joystick)
+            const mobileControls = document.getElementById('mobile-controls');
+            mobileControls.addEventListener('touchstart', handleTouchStart, { passive: false });
+            mobileControls.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileControls.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+            // Gamepad
+            window.addEventListener('gamepadconnected', (e) => {
+                console.log('Gamepad connected:', e.gamepad.id);
+                gamepadIndex = e.gamepad.index;
+            });
+            window.addEventListener('gamepaddisconnected', (e) => {
+                console.log('Gamepad disconnected:', e.gamepad.id);
+                if (gamepadIndex === e.gamepad.index) {
+                    gamepadIndex = -1;
+                }
+            });
+            // Poll gamepads in the game loop
+            setInterval(pollGamepads, 50);
+
+            // UI Buttons
+            document.getElementById('play-button').addEventListener('click', startGame);
+            document.getElementById('continue-button').addEventListener('click', continueGame);
+            document.getElementById('settings-button').addEventListener('click', () => setGameState(GAME_STATES.SETTINGS));
+            document.getElementById('highscores-button').addEventListener('click', () => setGameState(GAME_STATES.HIGH_SCORES));
+            document.getElementById('difficulty-button').addEventListener('click', () => setGameState(GAME_STATES.DIFFICULTY));
+
+            document.getElementById('resume-button').addEventListener('click', () => setGameState(GAME_STATES.PLAYING));
+            document.getElementById('restart-button').addEventListener('click', startGame); // Restart current level for now
+            document.getElementById('pause-to-main-menu-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+
+            document.getElementById('gameover-restart-button').addEventListener('click', startGame);
+            document.getElementById('gameover-main-menu-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+
+            document.getElementById('victory-next-level-button').addEventListener('click', () => {
+                // This button should only be visible if there are more levels
+                // For now, it just starts a new game if max level reached
+                if (level <= 3) { // Example: 3 levels
+                    initLevel();
+                    setGameState(GAME_STATES.PLAYING);
+                } else {
+                    setGameState(GAME_STATES.MENU);
+                }
+            });
+            document.getElementById('victory-main-menu-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+
+            document.getElementById('settings-back-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+            document.getElementById('highscores-back-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+            document.getElementById('difficulty-back-button').addEventListener('click', () => setGameState(GAME_STATES.MENU));
+
+            document.getElementById('music-volume-slider').addEventListener('input', (e) => {
+                audioSettings.musicVolume = parseFloat(e.target.value);
+                ASSETS.bgMusic.volume = audioSettings.musicVolume;
+                localStorage.setItem('musicVolume', audioSettings.musicVolume);
+                if (audioSettings.musicMuted) toggleMute('music');
+            });
+            document.getElementById('sfx-volume-slider').addEventListener('input', (e) => {
+                audioSettings.sfxVolume = parseFloat(e.target.value);
+                localStorage.setItem('sfxVolume', audioSettings.sfxVolume);
+                if (audioSettings.sfxMuted) toggleMute('sfx');
+            });
+            document.getElementById('music-mute-button').addEventListener('click', () => toggleMute('music'));
+            document.getElementById('sfx-mute-button').addEventListener('click', () => toggleMute('sfx'));
+
+            document.querySelectorAll('.difficulty-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    difficulty = e.target.dataset.difficulty;
+                    localStorage.setItem('difficulty', difficulty);
+                    updateDifficultyUI();
+                    // Apply difficulty changes immediately if in game
+                    if (currentGameState === GAME_STATES.PLAYING) {
+                        ghosts.forEach(ghost => {
+                            ghost.speed = GHOST_SPEED_BASE * (1 + (level - 1) * 0.1) * getDifficultyMultiplier().ghostSpeed;
+                        });
+                    }
+                });
+            });
+        }
+
+        function handleKeyDown(e) {
+            if (currentGameState !== GAME_STATES.PLAYING) {
+                if (e.key === 'Escape' && currentGameState === GAME_STATES.PAUSED) {
+                    setGameState(GAME_STATES.PLAYING);
+                } else if (e.key === 'Escape' && currentGameState !== GAME_STATES.MENU) {
+                    setGameState(GAME_STATES.MENU);
+                }
+                return;
+            }
+
+            let newDirection = DIRECTIONS.NONE;
+            switch (e.key) {
+                case 'w':
+                case 'ArrowUp':
+                    newDirection = DIRECTIONS.UP;
+                    break;
+                case 's':
+                case 'ArrowDown':
+                    newDirection = DIRECTIONS.DOWN;
+                    break;
+                case 'a':
+                case 'ArrowLeft':
+                    newDirection = DIRECTIONS.LEFT;
+                    break;
+                case 'd':
+                case 'ArrowRight':
+                    newDirection = DIRECTIONS.RIGHT;
+                    break;
+                case 'Escape':
+                    setGameState(GAME_STATES.PAUSED);
+                    break;
+            }
+            if (newDirection !== DIRECTIONS.NONE) {
+                pacman.nextDirection = newDirection;
+            }
+        }
+
+        function handleKeyUp(e) {
+            // No specific action on key up for Pac-Man movement
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault(); // Prevent scrolling
+            if (currentGameState !== GAME_STATES.PLAYING) return;
+
+            const mobileControls = document.getElementById('mobile-controls');
+            const touch = e.touches[0];
+            const rect = mobileControls.getBoundingClientRect();
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+
+            joystick.active = true;
+            joystick.startX = touchX;
+            joystick.startY = touchY;
+            joystick.currentX = touchX;
+            joystick.currentY = touchY;
+
+            const handle = document.getElementById('joystick-handle');
+            handle.style.left = `${touchX}px`;
+            handle.style.top = `${touchY}px`;
+            handle.style.transform = 'translate(-50%, -50%)';
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!joystick.active || currentGameState !== GAME_STATES.PLAYING) return;
+
+            const mobileControls = document.getElementById('mobile-controls');
+            const touch = e.touches[0];
+            const rect = mobileControls.getBoundingClientRect();
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+
+            const dx = touchX - joystick.startX;
+            const dy = touchY - joystick.startY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > joystick.radius) {
+                const angle = Math.atan2(dy, dx);
+                joystick.currentX = joystick.startX + Math.cos(angle) * joystick.radius;
+                joystick.currentY = joystick.startY + Math.sin(angle) * joystick.radius;
+            } else {
+                joystick.currentX = touchX;
+                joystick.currentY = touchY;
+            }
+
+            const handle = document.getElementById('joystick-handle');
+            handle.style.left = `${joystick.currentX}px`;
+            handle.style.top = `${joystick.currentY}px`;
+            handle.style.transform = 'translate(-50%, -50%)';
+
+            updatePacmanDirectionFromJoystick(dx, dy);
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            if (currentGameState !== GAME_STATES.PLAYING) return;
+
+            joystick.active = false;
+            joystick.startX = 0;
+            joystick.startY = 0;
+            joystick.currentX = 0;
+            joystick.currentY = 0;
+
+            const handle = document.getElementById('joystick-handle');
+            handle.style.left = '50%';
+            handle.style.top = '50%';
+            handle.style.transform = 'translate(-50%, -50%)';
+
+            pacman.nextDirection = DIRECTIONS.NONE; // Stop Pac-Man when joystick released
+        }
+
+        function updatePacmanDirectionFromJoystick(dx, dy) {
+            const threshold = 20; // Minimum distance to register a direction
+            if (Math.abs(dx) > Math.abs(dy)) { // Horizontal movement dominant
+                if (dx > threshold) pacman.nextDirection = DIRECTIONS.RIGHT;
+                else if (dx < -threshold) pacman.nextDirection = DIRECTIONS.LEFT;
+            } else { // Vertical movement dominant
+                if (dy > threshold) pacman.nextDirection = DIRECTIONS.DOWN;
+                else if (dy < -threshold) pacman.nextDirection = DIRECTIONS.UP;
+            }
+        }
+
+        function pollGamepads() {
+            if (currentGameState !== GAME_STATES.PLAYING) return;
+
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            if (gamepadIndex !== -1 && gamepads[gamepadIndex]) {
+                const gamepad = gamepads[gamepadIndex];
+
+                // Axes for joystick-like movement (left stick)
+                const axisX = gamepad.axes[0];
+                const axisY = gamepad.axes[1];
+                const deadzone = 0.5; // Adjust deadzone as needed
+
+                if (Math.abs(axisX) > deadzone || Math.abs(axisY) > deadzone) {
+                    updatePacmanDirectionFromJoystick(axisX, axisY);
+                } else {
+                    // If no significant stick input, check D-pad
+                    if (gamepad.buttons[12] && gamepad.buttons[12].pressed) pacman.nextDirection = DIRECTIONS.UP;
+                    else if (gamepad.buttons[13] && gamepad.buttons[13].pressed) pacman.nextDirection = DIRECTIONS.DOWN;
+                    else if (gamepad.buttons[14] && gamepad.buttons[14].pressed) pacman.nextDirection = DIRECTIONS.LEFT;
+                    else if (gamepad.buttons[15] && gamepad.buttons[15].pressed) pacman.nextDirection = DIRECTIONS.RIGHT;
+                    else pacman.nextDirection = DIRECTIONS.NONE;
+                }
+
+                // Pause button (e.g., Start button, usually button 9)
+                if (gamepad.buttons[9] && gamepad.buttons[9].pressed) {
+                    setGameState(GAME_STATES.PAUSED);
+                }
+            }
+        }
+
+        // --- Audio Management ---
+
+        function setupAudio() {
+            ASSETS.bgMusic.volume = audioSettings.musicVolume;
+            ASSETS.sfxPellet.volume = audioSettings.sfxVolume;
+            ASSETS.sfxPowerPellet.volume = audioSettings.sfxVolume;
+            ASSETS.sfxGhostEaten.volume = audioSettings.sfxVolume;
+            ASSETS.sfxPacmanDeath.volume = audioSettings.sfxVolume;
+            ASSETS.sfxGameOver.volume = audioSettings.sfxVolume;
+            ASSETS.sfxVictory.volume = audioSettings.sfxVolume;
+
+            document.getElementById('music-volume-slider').value = audioSettings.musicVolume;
+            document.getElementById('sfx-volume-slider').value = audioSettings.sfxVolume;
+
+            updateMuteButtonUI('music');
+            updateMuteButtonUI('sfx');
+        }
+
+        function playMusic(audioElement) {
+            if (!audioSettings.musicMuted) {
+                audioElement.play().catch(e => console.log("Music playback failed:", e));
+            }
+        }
+
+        function stopMusic(audioElement) {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+        }
+
+        function playSfx(audioElement) {
+            if (!audioSettings.sfxMuted) {
+                // Clone node to allow multiple simultaneous plays
+                const clone = audioElement.cloneNode();
+                clone.volume = audioSettings.sfxVolume;
+                clone.play().catch(e => console.log("SFX playback failed:", e));
+            }
+        }
+
+        function toggleMute(type) {
+            if (type === 'music') {
+                audioSettings.musicMuted = !audioSettings.musicMuted;
+                ASSETS.bgMusic.muted = audioSettings.musicMuted;
+                localStorage.setItem('musicMuted', audioSettings.musicMuted);
+                if (!audioSettings.musicMuted && currentGameState === GAME_STATES.PLAYING) {
+                    playMusic(ASSETS.bgMusic);
+                } else if (audioSettings.musicMuted) {
+                    stopMusic(ASSETS.bgMusic);
+                }
+            } else if (type === 'sfx') {
+                audioSettings.sfxMuted = !audioSettings.sfxMuted;
+                localStorage.setItem('sfxMuted', audioSettings.sfxMuted);
+            }
+            updateMuteButtonUI(type);
+        }
+
+        function updateMuteButtonUI(type) {
+            const button = document.getElementById(`${type}-mute-button`);
+            if (type === 'music') {
+                button.textContent = audioSettings.musicMuted ? 'Unmute' : 'Mute';
+                button.classList.toggle('active', audioSettings.musicMuted);
+            } else if (type === 'sfx') {
+                button.textContent = audioSettings.sfxMuted ? 'Unmute' : 'Mute';
+                button.classList.toggle('active', audioSettings.sfxMuted);
+            }
+        }
+
+        // --- High Score Management ---
+
+        function loadHighScores() {
+            const storedScores = JSON.parse(localStorage.getItem('pacmanHighScores') || '[]');
+            highScores = storedScores.sort((a, b) => b.score - a.score);
+            if (highScores.length > 0) {
+                highScore = highScores[0].score;
+            }
+        }
+
+        function saveHighScore(currentScore) {
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                localStorage.setItem('pacmanHighScore', highScore);
+            }
+
+            let highScores = JSON.parse(localStorage.getItem('pacmanHighScores') || '[]');
+            highScores.push({ score: currentScore, date: new Date().toLocaleString() });
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, MAX_HIGH_SCORES); // Keep only top N scores
+            localStorage.setItem('pacmanHighScores', JSON.stringify(highScores));
+        }
+
+        function displayHighScores() {
+            const list = document.getElementById('highscores-list');
+            list.innerHTML = '';
+            const highScores = JSON.parse(localStorage.getItem('pacmanHighScores') || '[]');
+            if (highScores.length === 0) {
+                const item = document.createElement('li');
+                item.className = 'score-item';
+                item.textContent = 'No scores yet!';
+                list.appendChild(item);
+            } else {
+                highScores.forEach((entry, index) => {
+                    const item = document.createElement('li');
+                    item.className = 'score-item';
+                    item.innerHTML = `<span>${index + 1}. ${entry.score}</span><span>${entry.date}</span>`;
+                    list.appendChild(item);
+                });
+            }
+        }
+
+        // --- Difficulty Management ---
+
+        function getDifficultyMultiplier() {
+            switch (difficulty) {
+                case 'easy': return { ghostSpeed: 0.8, pacmanSpeed: 1.1, ghostAI: 0.7 };
+                case 'normal': return { ghostSpeed: 1, pacmanSpeed: 1, ghostAI: 1 };
+                case 'hard': return { ghostSpeed: 1.2, pacmanSpeed: 0.9, ghostAI: 1.3 };
+                default: return { ghostSpeed: 1, pacmanSpeed: 1, ghostAI: 1 };
+            }
+        }
+
+        function updateDifficultyUI() {
+            document.querySelectorAll('.difficulty-button').forEach(button => {
+                if (button.dataset.difficulty === difficulty) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+            requestAnimationFrame(gameLoop); // Start the game loop
         });
 
-        // Loop de renderização
-        function frame() {
-            nes.frame();
-            requestAnimationFrame(frame);
-        }
-
-        // Mapeamento DualShock
-        function updateGamepad() {
-            const gp = navigator.getGamepads()[0];
-            if (gp) {
-                // Mapeamento NES: 1 = Player 1
-                if (gp.buttons[1].pressed) nes.buttonDown(1, jsnes.Controller.BUTTON_A);
-                else nes.buttonUp(1, jsnes.Controller.BUTTON_A);
-                
-                if (gp.buttons[0].pressed) nes.buttonDown(1, jsnes.Controller.BUTTON_B);
-                else nes.buttonUp(1, jsnes.Controller.BUTTON_B);
-
-                if (gp.buttons[12].pressed) nes.buttonDown(1, jsnes.Controller.BUTTON_UP);
-                else nes.buttonUp(1, jsnes.Controller.BUTTON_UP);
-                
-                if (gp.buttons[13].pressed) nes.buttonDown(1, jsnes.Controller.BUTTON_DOWN);
-                else nes.buttonUp(1, jsnes.Controller.BUTTON_DOWN);
-            }
-            requestAnimationFrame(updateGamepad);
-        }
-
-        // Função de carregar jogo
-        async function loadGame(romUrl) {
-            const response = await fetch(romUrl);
-            const romData = await response.arrayBuffer();
-            nes.loadROM(romData);
-            requestAnimationFrame(frame);
-            updateGamepad();
-        }
-
-        // --- Substitua seu antigo playGameButton.addEventListener por isto ---
-        playGameButton.addEventListener('click', () => {
-            if (selectedGame) {
-                showScreen('game-launch-screen');
-                // IMPORTANTE: Insira aqui a URL de uma ROM .nes (formato NES)
-                // Dica: Use jogos homebrew gratuitos para evitar bloqueios
-                loadGame('https://link-da-sua-rom-aqui.nes');
-            }
+        // Add a small delay for the loading screen to be visible
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (currentGameState === GAME_STATES.LOADING) {
+                    setGameState(GAME_STATES.MENU);
+                }
+            }, 500); // Ensure loading screen is shown for at least 0.5 seconds
         });
+
+        // Vibrate on mobile death
+        function vibrate(pattern) {
+            if (isMobile && navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
+        // Override pacman.startDeath to include vibration
+        const originalStartDeath = PacMan.prototype.startDeath;
+        PacMan.prototype.startDeath = function() {
+            originalStartDeath.apply(this, arguments);
+            vibrate(200); // Vibrate for 200ms
+        };
+
     </script>
 </body>
 </html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pac-Man Neon Arcade</title>
+    <style>
+        /* Global Styles */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Press Start 2P', cursive; /* Fallback to generic if not loaded */
+            color: #0ff; /* Neon blue */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            cursor: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXc0PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEyIDJDNi40NzcgMiAyIDYuNDc3IDIgMTJDNCAxMiA1LjE0NiAxMi41NDYgNi40MTQgMTMuODE4TDExLjQxNCAxOC44MThDMTIuNjg2IDIwLjA5IDE0LjQxNCAyMC4wOSAxNS42ODYgMTguODE4TDIwLjU4NiAxMy45MThDMjEuODU0IDEyLjY0NiAyMyAxMiAxMiAxMloiIGZpbGw9IiMwZmYiLz48L3N2Zz4=') 12 12, auto; /* Custom neon cursor */
+        }
+
+        @font-face {
+            font-family: 'Press Start 2P';
+            src: url('data:font/ttf;base64,AAEAAAALAIAAAwAwT1MvMi8xLzYwNzg1Nzg2NzkAAABgYXBwYS8xLzYwNzg1Nzg2NzkAAABgY21hcC8xLzYwNzg1Nzg2NzkAAABgZ2x5Zi8xLzYwNzg1Nzg2NzkAAABgZ2FzYm8vMS82MDc4NTc4NjU5AAABGGhlYWQvMS82MDc4NTc4NjU5AAABGGhoZWEvMS82MDc4NTc4NjU5AAABGGhtdHgvMS82MDc4NTc4NjU5AAABGGtlcm4vMS82MDc4NTc4NjU5AAABGGxvY2EvMS82MDc4NTc4NjU5AAABGG1heHAvMS82MDc4NTc4NjU5AAABGG5hbWUvMS82MDc4NTc4NjU5AAABGG9zMmcvMS82MDc4NTc4NjU5AAABGGZwb25kLzEvNjA3ODU3ODY1OQAAARhwb3N0LzEvNjA3ODU3ODY1OQAAARh2ZXJzLzEvNjA3ODU3ODY1OQAAARh2bXJrLzEvNjA3ODU3ODY1OQAAARh2bXRsLzEvNjA3ODU3ODY1OQAAARh2bXh2LzEvNjA3ODU3ODY1OQAAARh2bXl2LzEvNjA3ODU3ODY1OQAAARh2bXp2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3NTc4NjU5AAABGGZwb25kLzEvNjA3ODU3ODY1OQAAARhwb3N0LzEvNjA3ODU3ODY1OQAAARh2ZXJzLzEvNjA3ODU3ODY1OQAAARh2bXJrLzEvNjA3ODU3ODY1OQAAARh2bXRsLzEvNjA3ODU3ODY1OQAAARh2bXh2LzEvNjA3ODU3ODY1OQAAARh2bXl2LzEvNjA3ODU3ODY1OQAAARh2bXp2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2bXJ2LzEvNjA3ODU3ODY1OQAAARh2b
