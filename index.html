@@ -2,28 +2,156 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>NeoArcade - Console Web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeoArcade - Fliperama Premium</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Motor do Emulador -->
-    <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </head>
 <body>
-    <div id="main-app">
-        <header class="header"><div class="header-title">NEOARCADE</div></header>
-        <main class="main-content">
-            <div id="game-grid">
-                <!-- Botões de Jogo -->
-                <div class="game-card" onclick="iniciarJogo('sf2.zip', 'cps1')">Street Fighter II</div>
-                <div class="game-card" onclick="iniciarJogo('mslug.zip', 'neogeo')">Metal Slug</div>
-            </div>
-            
-            <!-- Tela onde o emulador vai aparecer -->
-            <div id="game-play-screen" class="hidden">
-                <div id="emulator" style="width: 100%; height: 500px;"></div>
-                <button class="exit" onclick="sairJogo()">Sair do Jogo</button>
-            </div>
-        </main>
+    <div id="splash-screen">
+        <div class="splash-logo">NEOARCADE</div>
+        <div class="splash-subtitle">A Experiência Arcade Definitiva</div>
+        <div class="loading-bar"><div class="loading-progress"></div></div>
     </div>
+
+    <div class="container hidden" id="main-app">
+        <header class="header">
+            <div class="header-title">NEOARCADE</div>
+            <nav class="header-nav">
+                <button onclick="showScreen('home')">Início</button>
+                <button onclick="showScreen('romImport')">Importar ROMs</button>
+                <button onclick="showScreen('settings')">Configurações</button>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-menu-item active" data-screen="home">Todos os Jogos</div>
+                <div class="sidebar-menu-item" data-category="Neo Geo">Neo Geo</div>
+                <div class="sidebar-menu-item" data-category="MAME Arcade">MAME Arcade</div>
+                <div class="sidebar-menu-item" data-category="CPS1">CPS1</div>
+                <div class="sidebar-menu-item" data-category="CPS2">CPS2</div>
+                <div class="sidebar-menu-item" data-category="CPS3">CPS3</div>
+                <div class="sidebar-menu-item" data-category="Sega Arcade">Sega Arcade</div>
+                <div class="sidebar-menu-item" data-category="FinalBurn Alpha">FinalBurn Alpha</div>
+                <div class="sidebar-menu-item" data-category="PlayStation 1">PlayStation 1</div>
+                <div class="sidebar-menu-item" data-category="Favorites">Favoritos</div>
+                <div class="sidebar-menu-item" data-category="History">Histórico</div>
+            </aside>
+
+            <section class="game-list-area" id="home-screen">
+                <div class="search-bar">
+                    <input type="text" id="game-search" placeholder="Buscar jogos...">
+                    <button onclick="searchGames()">Buscar</button>
+                    <button onclick="autoDownloadCovers()">Baixar Capas</button>
+                </div>
+                <div class="game-grid" id="game-grid">
+                    </div>
+            </section>
+        </main>
+
+        <div id="game-play-screen">
+            <div class="game-display">
+                <p id="playing-game-title">Carregando Jogo...</p>
+            </div>
+            <div class="game-controls">
+                <button onclick="simulateSaveState()">Save State</button>
+                <button onclick="simulateLoadState()">Load State</button>
+                <button onclick="toggleTurboMode()">Turbo</button>
+                <button onclick="toggleShader()">Shader CRT</button>
+                <button class="exit" onclick="exitGame()">Sair do Jogo</button>
+            </div>
+        </div>
+
+        <div id="settings-screen">
+            <h2 class="settings-title">Configurações</h2>
+
+            <div class="settings-section">
+                <h3>Gráficos e Emulação</h3>
+                <div class="setting-item">
+                    <label for="fps-display">Mostrar FPS</label>
+                    <input type="checkbox" id="fps-display" checked>
+                </div>
+                <div class="setting-item">
+                    <label for="hd-filter">Filtro HD</label>
+                    <input type="checkbox" id="hd-filter">
+                </div>
+                <div class="setting-item">
+                    <label for="crt-shader">Shader CRT Retrô</label>
+                    <input type="checkbox" id="crt-shader" checked>
+                </div>
+                <div class="setting-item">
+                    <label for="anti-lag">Sistema Anti-Lag</label>
+                    <input type="checkbox" id="anti-lag" checked>
+                </div>
+                <div class="setting-item">
+                    <label for="resolution">Resolução</label>
+                    <select id="resolution">
+                        <option value="auto">Automático</option>
+                        <option value="720p">1280x720 (HD)</option>
+                        <option value="1080p">1920x1080 (Full HD)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Controles</h3>
+                <div class="setting-item">
+                    <label for="auto-detect-controller">Detectar Controle Automaticamente</label>
+                    <input type="checkbox" id="auto-detect-controller" checked>
+                </div>
+                <div class="setting-item">
+                    <label for="vibration">Vibração do Controle</label>
+                    <input type="checkbox" id="vibration" checked>
+                </div>
+                <div class="setting-item">
+                    <label for="latency">Latência (ms)</label>
+                    <input type="range" id="latency" min="0" max="100" value="10">
+                </div>
+                <div class="setting-item">
+                    <label>Configurar Botões</label>
+                    <button class="settings-button" onclick="alert('Simulando configuração de botões...')">Abrir Configuração</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Áudio</h3>
+                <div class="setting-item">
+                    <label for="master-volume">Volume Principal</label>
+                    <input type="range" id="master-volume" min="0" max="100" value="70">
+                </div>
+                <div class="setting-item">
+                    <label for="arcade-music">Música Arcade</label>
+                    <input type="checkbox" id="arcade-music" checked>
+                </div>
+            </div>
+
+            <div class="settings-buttons">
+                <button onclick="saveSettings()">Salvar</button>
+                <button class="cancel" onclick="showScreen('home')">Cancelar</button>
+            </div>
+        </div>
+
+        <div id="rom-import-screen">
+            <h2 class="rom-import-title">Importar ROMs</h2>
+            <div class="rom-import-box">
+                <p>Selecione seus arquivos de ROM (.zip, .7z, .rom, .bin, .iso) para adicionar à biblioteca.</p>
+                <label for="rom-file-input">
+                    Clique ou arraste e solte arquivos aqui
+                    <input type="file" id="rom-file-input" multiple accept=".zip,.7z,.rom,.bin,.iso">
+                </label>
+                <div id="selected-rom-info">Nenhum arquivo selecionado.</div>
+                <div class="rom-import-actions">
+                    <button onclick="processRomFiles()">Processar ROMs</button>
+                    <button class="cancel" onclick="showScreen('home')">Voltar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="arcade-select-sound" src="https://www.soundjay.com/buttons/sounds/button-2.mp3" preload="auto"></audio>
+    <audio id="arcade-start-sound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3" preload="auto"></audio>
+    <audio id="arcade-bg-music" src="https://www.soundjay.com/music/sounds/arcade-music-1.mp3" loop preload="auto"></audio>
+
     <script src="script.js"></script>
 </body>
 </html>
