@@ -1,0 +1,4 @@
+body { background: #1a0000; color: #fff; font-family: sans-serif; }
+.hidden { display: none !important; }
+.game-card { padding: 20px; background: #330000; border: 2px solid #ff0055; margin: 10px; cursor: pointer; }
+.exit { background: #ff0055; color: white; padding: 10px; border: none; cursor: pointer; }

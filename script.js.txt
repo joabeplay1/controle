@@ -1,0 +1,22 @@
+ function iniciarJogo(nomeArquivo, sistema) {
+    document.getElementById('game-grid').classList.add('hidden');
+    document.getElementById('game-play-screen').classList.remove('hidden');
+
+    const config = {
+        system: sistema, 
+        url: "roms/" + nomeArquivo, // O arquivo DEVE estar numa pasta chamada 'roms'
+        container: "emulator",
+        path: "https://cdn.emulatorjs.org/stable/data/"
+    };
+
+    window.EJS_player = new EJS(config);
+}
+
+function sairJogo() {
+    if (window.EJS_player) {
+        window.EJS_player.destroy();
+        window.EJS_player = null;
+    }
+    document.getElementById('game-grid').classList.remove('hidden');
+    document.getElementById('game-play-screen').classList.add('hidden');
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>NeoArcade - Console Web</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Motor do Emulador -->
+    <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</head>
+<body>
+    <div id="main-app">
+        <header class="header"><div class="header-title">NEOARCADE</div></header>
+        <main class="main-content">
+            <div id="game-grid">
+                <!-- Botões de Jogo -->
+                <div class="game-card" onclick="iniciarJogo('sf2.zip', 'cps1')">Street Fighter II</div>
+                <div class="game-card" onclick="iniciarJogo('mslug.zip', 'neogeo')">Metal Slug</div>
+            </div>
+            
+            <!-- Tela onde o emulador vai aparecer -->
+            <div id="game-play-screen" class="hidden">
+                <div id="emulator" style="width: 100%; height: 500px;"></div>
+                <button class="exit" onclick="sairJogo()">Sair do Jogo</button>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
