@@ -1,14 +1,18 @@
- function iniciarJogo(nomeArquivo, sistema) {
-    document.getElementById('game-grid').classList.add('hidden');
-    document.getElementById('game-play-screen').classList.remove('hidden');
+// Função que realmente inicializa o emulador
+function iniciarJogoReal(nomeArquivo, sistema) {
+    // 1. Esconde a tela de lista e mostra a tela de emulação
+    document.getElementById('home-screen').classList.remove('active');
+    document.getElementById('game-play-screen').classList.add('active');
 
+    // 2. Configuração do motor EJS
     const config = {
         system: sistema, 
-        url: "roms/" + nomeArquivo, // O arquivo DEVE estar numa pasta chamada 'roms'
-        container: "emulator",
+        url: "https://joabeplay1.github.io/controle/roms/" + nomeArquivo,
+        container: "emulator", // Nome da div onde o jogo vai rodar
         path: "https://cdn.emulatorjs.org/stable/data/"
     };
 
+    // 3. Inicializa o emulador
     window.EJS_player = new EJS(config);
 }
 
@@ -17,6 +21,5 @@ function sairJogo() {
         window.EJS_player.destroy();
         window.EJS_player = null;
     }
-    document.getElementById('game-grid').classList.remove('hidden');
-    document.getElementById('game-play-screen').classList.add('hidden');
+    location.reload(); // Recarrega a página para limpar o emulador completamente
 }
