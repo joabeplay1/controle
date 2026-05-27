@@ -1,87 +1,69 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pac-Man Arcade Premium</title>
-    <style>
-        /* CSS Otimizado para o visual Neon/Premium */
-        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Arial', sans-serif; }
-        canvas { 
-            background: radial-gradient(circle at center, #1a0520 0%, #000 70%);
-            border: 4px solid #330033;
-            box-shadow: 0 0 40px #ff00ff44;
-            max-width: 100vw; max-height: 100vh;
-        }
-        #hud { position: absolute; top: 20px; color: #00ffff; font-size: 24px; text-shadow: 0 0 10px #00ffff; pointer-events: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>biblia</title>
+
+<style>
+
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#0f172a;
+    color:white;
+    font-family:Arial;
+}
+
+.container{
+    text-align:center;
+}
+
+h1{
+    font-size:48px;
+    margin-bottom:20px;
+}
+
+p{
+    color:#94a3b8;
+    font-size:18px;
+}
+
+button{
+    background:#6366f1;
+    border:none;
+    color:white;
+    padding:14px 25px;
+    border-radius:10px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#4f46e5;
+}
+
+</style>
 </head>
+
 <body>
 
-    <div id="hud">SCORE: <span id="score">0</span></div>
-    <canvas id="gameCanvas" width="600" height="600"></canvas>
+<div class="container">
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('score');
+<h1>biblia</h1>
 
-        let score = 0;
-        let pacman = { x: 300, y: 300, dx: 2, dy: 0, mouth: 0 };
-        let food = { x: 100, y: 100 };
+<p>Aplicativo criado com sucesso ✨</p>
 
-        // Função de Renderização Premium
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+<button onclick="alert('Botão funcionando!')">
+Abrir
+</button>
 
-            // Animação da boca orgânica
-            pacman.mouth = Math.abs(Math.sin(Date.now() / 150)) * 0.25;
+</div>
 
-            // Desenhar Comida (Neon)
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ff00';
-            ctx.fillStyle = '#00ff00';
-            ctx.beginPath();
-            ctx.arc(food.x, food.y, 8, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Desenhar Pac-Man (Neon)
-            ctx.shadowColor = '#fffc00';
-            ctx.fillStyle = '#fffc00';
-            ctx.beginPath();
-            ctx.arc(pacman.x, pacman.y, 25, pacman.mouth * Math.PI, (2 - pacman.mouth) * Math.PI);
-            ctx.lineTo(pacman.x, pacman.y);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // Lógica de movimento e colisão
-            pacman.x += pacman.dx;
-            pacman.y += pacman.dy;
-
-            // Resetar posição
-            if (pacman.x > 620) pacman.x = -20;
-            
-            // Colisão simples
-            let dist = Math.hypot(pacman.x - food.x, pacman.y - food.y);
-            if (dist < 30) {
-                score += 10;
-                scoreEl.innerText = score;
-                food.x = Math.random() * 500 + 50;
-                food.y = Math.random() * 500 + 50;
-            }
-
-            requestAnimationFrame(draw);
-        }
-
-        // Controles
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') { pacman.dx = 0; pacman.dy = -2; }
-            if (e.key === 'ArrowDown') { pacman.dx = 0; pacman.dy = 2; }
-            if (e.key === 'ArrowLeft') { pacman.dx = -2; pacman.dy = 0; }
-            if (e.key === 'ArrowRight') { pacman.dx = 2; pacman.dy = 0; }
-        });
-
-        draw();
-    </script>
 </body>
 </html>
