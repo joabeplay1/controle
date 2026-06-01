@@ -58,16 +58,16 @@
                     <textarea id="app-prompt" placeholder="Ex: Quero criar um aplicativo de música com sistema de login e player..."></textarea>
                     <div class="creator-options">
                         <select id="app-tech">
+                            <option value="html">HTML/CSS/JS (Estático para Vercel)</option>
                             <option value="react">React (Web)</option>
                             <option value="flutter">Flutter (Mobile)</option>
-                            <option value="html">HTML/CSS/JS (Estático)</option>
                         </select>
                         <button onclick="generateApp()" class="btn-primary">Gerar Aplicativo com IA</button>
                     </div>
                 </div>
                 <div id="generation-progress" style="display:none">
                     <div class="spinner"></div>
-                    <p>Jesus Reina AI está arquitetando seu sistema...</p>
+                    <p>Jesus Reina AI está arquitetando e programando seu sistema completo...</p>
                 </div>
             </section>
 
@@ -102,9 +102,11 @@
                         <button class="btn-secondary" onclick="askAI('Melhorar design')">Melhorar Design (IA)</button>
                         <button class="btn-secondary" onclick="askAI('Adicionar Login')">Adicionar Login (IA)</button>
                     </div>
+                    
+                    <!-- CONTAINER REESTRUTURADO PARA PRÉ-VISUALIZAÇÃO PREMIUM -->
                     <div class="preview-container">
-                        <div id="app-preview-frame" class="preview-desktop">
-                            <div id="rendered-content"></div>
+                        <div id="rendered-content">
+                            <!-- O iframe gerado dinamicamente pelo script.js com o ID #app-preview-frame entra exatamente aqui -->
                         </div>
                     </div>
                 </div>
@@ -127,9 +129,9 @@
                 <h2>Exportar Projeto</h2>
                 <div class="export-grid">
                     <div class="export-card">
-                        <h4>Web Package</h4>
-                        <p>HTML, CSS e JavaScript puros.</p>
-                        <button onclick="exportZip()">Baixar .ZIP</button>
+                        <h4>Web Package (Pronto para Vercel)</h4>
+                        <p>Código fonte limpo estruturado em arquivos individuais index.html, estilo.css e script.js prontos para hospedagem.</p>
+                        <button onclick="exportZip()">Baixar Arquivos Web</button>
                     </div>
                     <div class="export-card">
                         <h4>Android APK</h4>
