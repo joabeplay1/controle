@@ -1,69 +1,471 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AppForge AI - Crie Apps com IA</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary-bg: #0a0a0a;
+            --secondary-bg: #1a1a1a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-color: #e0e0e0;
+            --accent-color: #0ff; /* Cyan neon */
+            --accent-color-dark: #00aaff; /* Darker blue for contrast */
+            --shadow-color: rgba(0, 255, 255, 0.3);
+            --neon-glow: 0 0 8px var(--accent-color), 0 0 15px var(--accent-color), 0 0 25px var(--accent-color);
+            --neon-glow-hover: 0 0 10px var(--accent-color), 0 0 20px var(--accent-color), 0 0 30px var(--accent-color), 0 0 40px var(--accent-color);
+        }
 
-<title>biblia</title>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
 
-<style>
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-color);
+        }
 
-body{
-    margin:0;
-    height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:#0f172a;
-    color:white;
-    font-family:Arial;
-}
+        .glassmorphism-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--border-color);
+            border-radius: 1.5rem; /* rounded-2xl */
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s ease-in-out;
+        }
 
-.container{
-    text-align:center;
-}
+        .glassmorphism-card:hover {
+            border-color: var(--accent-color);
+            box-shadow: var(--neon-glow);
+        }
 
-h1{
-    font-size:48px;
-    margin-bottom:20px;
-}
+        .btn-primary {
+            background: linear-gradient(45deg, var(--accent-color-dark), var(--accent-color));
+            color: var(--primary-bg);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            font-weight: 600;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+            border: none;
+        }
 
-p{
-    color:#94a3b8;
-    font-size:18px;
-}
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: var(--neon-glow-hover);
+            filter: brightness(1.2);
+        }
 
-button{
-    background:#6366f1;
-    border:none;
-    color:white;
-    padding:14px 25px;
-    border-radius:10px;
-    font-size:16px;
-    cursor:pointer;
-}
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            transition: all 0.3s ease-in-out;
+            border: 1px solid var(--border-color);
+        }
 
-button:hover{
-    background:#4f46e5;
-}
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent-color);
+            box-shadow: var(--neon-glow);
+            transform: translateY(-1px);
+        }
 
-</style>
+        .input-field {
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-color);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.5);
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 0.75rem;
+            color: var(--text-color);
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+            text-decoration: none;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+        }
+
+        .sidebar-link.active {
+            background: linear-gradient(90deg, var(--accent-color-dark), var(--accent-color));
+            color: var(--primary-bg);
+            font-weight: 600;
+            box-shadow: var(--neon-glow);
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #111;
+            border-radius: 0.75rem;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .mobile-frame {
+            width: 375px; /* iPhone X width */
+            height: 667px; /* iPhone X height */
+            border: 10px solid #333;
+            border-radius: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+        }
+        .mobile-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 20px;
+            background-color: #333;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+            z-index: 10;
+        }
+
+        .tablet-frame {
+            width: 768px; /* iPad Mini width */
+            height: 1024px; /* iPad Mini height */
+            border: 15px solid #333;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .desktop-frame {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        /* Custom scrollbar for main content */
+        .main-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .main-content::-webkit-scrollbar-track {
+            background: var(--secondary-bg);
+            border-radius: 10px;
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 10px;
+            border: 2px solid var(--secondary-bg);
+        }
+
+        .main-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color-dark);
+        }
+    </style>
 </head>
-
 <body>
 
-<div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="text-3xl font-bold text-center mb-8" style="font-family: 'Montserrat', sans-serif;">
+            <span class="text-white">AppForge</span> <span class="text-accent-color">AI</span>
+        </div>
 
-<h1>biblia</h1>
+        <nav class="flex flex-col gap-2">
+            <a href="#" class="sidebar-link active" data-section="home">
+                <i class="fas fa-home w-6 text-center"></i> Início
+            </a>
+            <a href="#" class="sidebar-link" data-section="my-apps">
+                <i class="fas fa-mobile-alt w-6 text-center"></i> Meus Aplicativos
+            </a>
+            <a href="#" class="sidebar-link" data-section="create-app">
+                <i class="fas fa-plus-circle w-6 text-center"></i> Criar Aplicativo
+            </a>
+            <a href="#" class="sidebar-link" data-section="ai-editor">
+                <i class="fas fa-magic w-6 text-center"></i> Editor IA
+            </a>
+            <a href="#" class="sidebar-link" data-section="preview">
+                <i class="fas fa-eye w-6 text-center"></i> Pré-visualização
+            </a>
+            <a href="#" class="sidebar-link" data-section="publish">
+                <i class="fas fa-rocket w-6 text-center"></i> Publicar
+            </a>
+            <a href="#" class="sidebar-link" data-section="gemini-api">
+                <i class="fas fa-key w-6 text-center"></i> API Gemini
+            </a>
+            <a href="#" class="sidebar-link" data-section="settings">
+                <i class="fas fa-cog w-6 text-center"></i> Configurações
+            </a>
+        </nav>
+    </aside>
 
-<p>Aplicativo criado com sucesso ✨</p>
+    <!-- Main Content Area -->
+    <main class="main-content">
 
-<button onclick="alert('Botão funcionando!')">
-Abrir
-</button>
+        <!-- Home Section -->
+        <section id="home-section" class="section-content">
+            <h1 class="text-5xl font-bold mb-8 text-center text-white">Bem-vindo ao <span class="text-accent-color">AppForge AI</span></h1>
+            <p class="text-lg text-center mb-12 max-w-3xl mx-auto">
+                Sua plataforma definitiva para criar aplicativos completos, robustos e visualmente deslumbrantes usando apenas linguagem natural.
+                Descreva sua ideia e deixe a inteligência artificial fazer a mágica.
+            </p>
 
-</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-lightbulb text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Crie com Facilidade</h3>
+                    <p class="text-gray-400">Transforme suas ideias em aplicativos funcionais com descrições simples.</p>
+                </div>
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-edit text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Edição Inteligente</h3>
+                    <p class="text-gray-400">Modifique seu projeto com comandos de texto, sem recriar do zero.</p>
+                </div>
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-history text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Histórico de Versões</h3>
+                    <p class="text-gray-400">Nunca perca uma alteração. Restaure versões anteriores a qualquer momento.</p>
+                </div>
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-mobile-alt text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Pré-visualização em Tempo Real</h3>
+                    <p class="text-gray-400">Veja seu aplicativo em ação em diferentes dispositivos antes de publicar.</p>
+                </div>
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-cloud-upload-alt text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Publicação Versátil</h3>
+                    <p class="text-gray-400">Publique como PWA, Website, APK Android e mais.</p>
+                </div>
+                <div class="glassmorphism-card p-8 text-center flex flex-col items-center">
+                    <i class="fas fa-gem text-5xl text-accent-color mb-4"></i>
+                    <h3 class="text-2xl font-semibold mb-3">Poder do Gemini</h3>
+                    <p class="text-gray-400">Utilize a inteligência da API Google Gemini para resultados incríveis.</p>
+                </div>
+            </div>
+        </section>
 
-</body>
-</html>
+        <!-- My Apps Section -->
+        <section id="my-apps-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Meus Aplicativos</h2>
+            <div id="projects-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Project cards will be injected here -->
+                <div class="glassmorphism-card p-6 flex flex-col justify-between h-48">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-accent-color">Nenhum Projeto</h3>
+                        <p class="text-gray-400 text-sm">Crie seu primeiro aplicativo agora!</p>
+                    </div>
+                    <button onclick="showSection('create-app')" class="btn-primary mt-4 self-start">
+                        <i class="fas fa-plus-circle mr-2"></i> Criar Novo
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Create App Section -->
+        <section id="create-app-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Criar Novo Aplicativo</h2>
+            <div class="glassmorphism-card p-8">
+                <div class="mb-6">
+                    <label for="app-description" class="block text-lg font-medium mb-3">Descreva sua ideia de aplicativo:</label>
+                    <textarea id="app-description" rows="8" class="input-field w-full resize-y" placeholder="Ex: Quero um aplicativo de anotações com tema escuro e sincronização na nuvem."></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button id="create-app-btn" class="btn-primary flex items-center gap-2">
+                        <i class="fas fa-cogs"></i> Criar Aplicativo
+                    </button>
+                </div>
+                <div id="create-app-status" class="mt-6 text-center text-lg font-medium hidden">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p id="status-message">Iniciando criação...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Editor Section -->
+        <section id="ai-editor-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Editor IA</h2>
+            <div class="glassmorphism-card p-8">
+                <h3 class="text-2xl font-semibold mb-4 text-accent-color" id="editor-project-name">Nenhum Projeto Selecionado</h3>
+                <div class="mb-6">
+                    <label for="editor-command" class="block text-lg font-medium mb-3">Comando para a IA:</label>
+                    <textarea id="editor-command" rows="4" class="input-field w-full resize-y" placeholder="Ex: Trocar cor principal para azul. Adicionar um botão de login com Google."></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button id="apply-edit-btn" class="btn-primary flex items-center gap-2">
+                        <i class="fas fa-magic"></i> Aplicar Edição
+                    </button>
+                </div>
+                <div id="editor-status" class="mt-6 text-center text-lg font-medium hidden">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p id="editor-status-message">Aplicando alterações...</p>
+                </div>
+            </div>
+
+            <div class="glassmorphism-card p-8 mt-8">
+                <h3 class="text-2xl font-semibold mb-4 text-white">Histórico de Versões</h3>
+                <div id="versions-history" class="space-y-4">
+                    <p class="text-gray-400">Nenhuma versão disponível para este projeto.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preview Section -->
+        <section id="preview-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Pré-visualização em Tempo Real</h2>
+            <div class="glassmorphism-card p-8 mb-8">
+                <h3 class="text-2xl font-semibold mb-4 text-accent-color" id="preview-project-name">Nenhum Projeto Selecionado</h3>
+                <div class="flex gap-4 mb-6">
+                    <button id="show-mobile-preview" class="btn-secondary flex-1">
+                        <i class="fas fa-mobile-alt mr-2"></i> Mobile
+                    </button>
+                    <button id="show-tablet-preview" class="btn-secondary flex-1">
+                        <i class="fas fa-tablet-alt mr-2"></i> Tablet
+                    </button>
+                    <button id="show-desktop-preview" class="btn-secondary flex-1 active">
+                        <i class="fas fa-desktop mr-2"></i> Desktop
+                    </button>
+                </div>
+
+                <div id="preview-container" class="flex justify-center items-center min-h-[700px] relative">
+                    <div id="mobile-preview-frame" class="mobile-frame hidden">
+                        <iframe id="mobile-iframe" class="preview-iframe"></iframe>
+                    </div>
+                    <div id="tablet-preview-frame" class="tablet-frame hidden">
+                        <iframe id="tablet-iframe" class="preview-iframe"></iframe>
+                    </div>
+                    <div id="desktop-preview-frame" class="desktop-frame">
+                        <iframe id="desktop-iframe" class="preview-iframe"></iframe>
+                    </div>
+                    <p id="no-preview-message" class="text-gray-500 text-xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">Selecione ou crie um projeto para pré-visualizar.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Publish Section -->
+        <section id="publish-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Publicar Aplicativo</h2>
+            <div class="glassmorphism-card p-8">
+                <h3 class="text-2xl font-semibold mb-4 text-accent-color" id="publish-project-name">Nenhum Projeto Selecionado</h3>
+                <p class="mb-6 text-gray-400">Escolha o formato de publicação para o seu aplicativo.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <button id="publish-pwa-btn" class="btn-secondary flex items-center justify-center gap-3 py-4 text-lg">
+                        <i class="fas fa-globe w-6 text-center"></i> Publicar como PWA
+                    </button>
+                    <button id="publish-website-btn" class="btn-secondary flex items-center justify-center gap-3 py-4 text-lg">
+                        <i class="fas fa-code w-6 text-center"></i> Publicar como Website
+                    </button>
+                    <button id="publish-apk-btn" class="btn-secondary flex items-center justify-center gap-3 py-4 text-lg">
+                        <i class="fab fa-android w-6 text-center"></i> Exportar APK Android
+                    </button>
+                    <button id="publish-zip-btn" class="btn-secondary flex items-center justify-center gap-3 py-4 text-lg">
+                        <i class="fas fa-file-archive w-6 text-center"></i> Exportar Pacote ZIP
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gemini API Section -->
+        <section id="gemini-api-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Configuração da API Gemini</h2>
+            <div class="glassmorphism-card p-8">
+                <p class="mb-6 text-gray-400">Insira sua chave de API do Google Gemini para habilitar recursos avançados de IA.</p>
+                <div class="mb-6">
+                    <label for="gemini-api-key" class="block text-lg font-medium mb-3">Chave de API Gemini:</label>
+                    <input type="password" id="gemini-api-key" class="input-field w-full" placeholder="Sua chave de API secreta">
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button id="test-gemini-key-btn" class="btn-secondary flex items-center gap-2">
+                        <i class="fas fa-vial"></i> Testar Chave
+                    </button>
+                    <button id="save-gemini-key-btn" class="btn-primary flex items-center gap-2">
+                        <i class="fas fa-save"></i> Salvar Chave
+                    </button>
+                </div>
+                <div id="gemini-status" class="mt-6 text-center text-lg font-medium hidden">
+                    <p id="gemini-status-message"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Section -->
+        <section id="settings-section" class="section-content hidden">
+            <h2 class="text-4xl font-bold mb-8 text-white">Configurações</h2>
+            <div class="glassmorphism-card p-8">
+                <p class="mb-6 text-gray-400">Gerencie as configurações gerais do seu AppForge AI.</p>
+                <div class="mb-4">
+                    <label for="theme-select" class="block text-lg font-medium mb-3">Tema da Interface:</label>
+                    <select id="theme-select" class="input-field w-full">
+                        <option value="dark">Dark Mode (Padrão)</option>
+                        <option value="light" disabled>Light Mode (Em breve)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end">
+                    <button id="clear-data-btn" class="
