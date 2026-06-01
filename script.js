@@ -38,35 +38,79 @@ function checkApiStatus() {
     }
 }
 
-function generateApp() {
-    const prompt = document.getElementById('app-prompt').value;
-    if (!prompt) return alert('Descreva sua ideia primeiro.');
+// GERAÇÃO REAL USANDO A API DO GEMINI (OU OUTRA CADASTRADA)
+async function generateApp() {
+    const promptUser = document.getElementById('app-prompt').value;
+    const tech = document.getElementById('app-tech').value;
+    
+    if (!promptUser) return alert('Descreva sua ideia primeiro.');
     if (!apiKey) return alert('Configure sua API Key antes de começar.');
 
-    document.getElementById('generation-progress').style.display = 'block';
+    const progressDiv = document.getElementById('generation-progress');
+    if (progressDiv) progressDiv.style.display = 'block';
     
-    // Simulating AI Processing delay
-    setTimeout(() => {
+    // Engenharia de Prompt para forçar a IA a devolver a estrutura separada e limpa
+    const promptEngenharia = `
+    Você é um gerador automático de aplicações web completas e funcionais.
+    O usuário quer um aplicativo com a seguinte ideia: "${promptUser}" utilizando a tecnologia: "${tech}".
+    
+    Crie um aplicativo completo, moderno, responsivo, com design premium e totalmente funcional.
+    Você DEVE retornar a resposta estritamente no formato JSON abaixo, sem blocos de texto Markdown antes ou depois. Certifique-se de escapar as aspas corretamente no JSON.
+    
+    {
+      "name": "Nome curto para o App baseado na ideia",
+      "html": "Todo o código estrutural do index.html (não inclua tags de estilo ou script externos, apenas a estrutura limpa)",
+      "css": "Todo o código CSS do arquivo estilo.css com design moderno e responsivo",
+      "js": "Todo o código JavaScript funcional do arquivo script.js que faça o app funcionar de verdade"
+    }
+    `;
+
+    try {
+        // Chamada para a API do Gemini
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: promptEngenharia }] }]
+            })
+        });
+
+        const data = await response.json();
+        let jsonTexto = data.candidates[0].content.parts[0].text;
+        
+        // Limpa possíveis marcações de bloco de código markdown que a IA possa ter colocado
+        jsonTexto = jsonTexto.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const appGerado = JSON.parse(jsonTexto);
+
         const newApp = {
             id: Date.now(),
-            name: prompt.substring(0, 20) + '...',
-            description: prompt,
-            color: '#1a237e',
-            banner: 'Seja bem-vindo ao seu novo sistema!',
-            tech: document.getElementById('app-tech').value,
+            name: appGerado.name || "App Customizado",
+            description: promptUser,
+            tech: tech,
             version: 1,
-            createdAt: new Date().toLocaleDateString()
+            createdAt: new Date().toLocaleDateString(),
+            html: appGerado.html,
+            css: appGerado.css,
+            js: appGerado.js
         };
         
         apps.push(newApp);
         saveApps();
-        document.getElementById('generation-progress').style.display = 'none';
+        
         document.getElementById('app-prompt').value = '';
-        alert('Aplicativo gerado com sucesso!');
+        alert('Aplicativo completo gerado com sucesso!');
+        
         showSection('my-apps');
         renderAppList();
         updateDashboard();
-    }, 2500);
+
+    } catch (error) {
+        console.error(error);
+        alert('Erro ao gerar o aplicativo. Verifique sua chave API ou o formato da resposta.');
+    } finally {
+        if (progressDiv) progressDiv.style.display = 'none';
+    }
 }
 
 function renderAppList() {
@@ -89,7 +133,7 @@ function renderAppList() {
                 <p><strong>Versão:</strong> ${app.version}</p>
             </div>
             <div class="app-card-actions">
-                <button onclick="editApp(${app.id})">Editar</button>
+                <button onclick="editApp(${app.id})">Editar / Ver</button>
                 <button onclick="deleteApp(${app.id})" style="color:red">Excluir</button>
             </div>
         `;
@@ -104,35 +148,65 @@ function editApp(id) {
     currentEditingId = id;
     document.getElementById('editing-app-name').innerText = app.name;
     document.getElementById('edit-name').value = app.name;
-    document.getElementById('edit-color').value = app.color;
-    document.getElementById('edit-banner').value = app.banner;
     
+    // Preenche os campos do editor caso existam na sua UI, ou usa os códigos salvos
     showSection('editor');
     updatePreviewLive();
 }
 
+// RENDERIZAÇÃO REAL DENTRO DE UM IFRAME ISOLADO
 function updatePreviewLive() {
+    const app = apps.find(a => a.id === currentEditingId);
+    if (!app) return;
+
     const name = document.getElementById('edit-name').value;
-    const color = document.getElementById('edit-color').value;
-    const banner = document.getElementById('edit-banner').value;
-    const preview = document.getElementById('rendered-content');
     
-    preview.innerHTML = `
-        <div style="background:${color}; color:white; padding:20px; text-align:center">
-            <nav style="display:flex; justify-content:space-between; align-items:center">
-                <h1 style="font-size:1.2rem">${name}</h1>
-                <div><small>Menu ☰</small></div>
-            </nav>
-        </div>
-        <div style="padding:40px; text-align:center">
-            <h2 style="margin-bottom:20px">${banner}</h2>
-            <button style="background:${color}; color:white; border:none; padding:10px 20px; border-radius:5px">Botão Funcional</button>
-            <div style="margin-top:30px; display:grid; grid-template-columns:1fr 1fr; gap:10px">
-                <div style="height:100px; background:#f0f0f0; border-radius:10px"></div>
-                <div style="height:100px; background:#f0f0f0; border-radius:10px"></div>
-            </div>
-        </div>
+    // Atualiza o nome dinamicamente se alterado
+    app.name = name;
+
+    // Elemento iframe onde o app vai rodar isolado
+    const previewContainer = document.getElementById('rendered-content');
+    previewContainer.innerHTML = ''; // Limpa preview estático anterior
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'app-preview-frame';
+    iframe.style.width = '100%';
+    iframe.style.height = '500px';
+    iframe.style.border = 'none';
+    iframe.style.backgroundColor = '#fff';
+    
+    previewContainer.appendChild(iframe);
+
+    // Monta a estrutura completa injetando o CSS e JS gerados pela IA
+    const códigoCompleto = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${app.name}</title>
+            <style>
+                ${app.css}
+            </style>
+        </head>
+        <body>
+            ${app.html}
+            <script>
+                try {
+                    ${app.js}
+                } catch (err) {
+                    console.error("Erro no script do App Gerado:", err);
+                }
+            <\/script>
+        </body>
+        </html>
     `;
+
+    // Injeta o código de forma dinâmica no iframe para ele executar na hora
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(códigoCompleto);
+    doc.close();
 }
 
 function saveCurrentApp() {
@@ -140,12 +214,10 @@ function saveCurrentApp() {
     if (index === -1) return;
     
     apps[index].name = document.getElementById('edit-name').value;
-    apps[index].color = document.getElementById('edit-color').value;
-    apps[index].banner = document.getElementById('edit-banner').value;
     apps[index].version++;
     
     saveApps();
-    alert('Aplicativo salvo com sucesso!');
+    alert('Alterações salvas com sucesso!');
     renderAppList();
 }
 
@@ -178,7 +250,9 @@ function saveApps() {
 
 function setPreviewSize(size) {
     const frame = document.getElementById('app-preview-frame');
-    frame.className = `preview-${size}`;
+    if (frame) {
+        frame.className = `preview-${size}`;
+    }
 }
 
 function toggleAssistant() {
@@ -208,27 +282,48 @@ function sendChatMessage() {
     
     setTimeout(() => {
         if (text.toLowerCase().includes('exportar')) {
-            addChatMessage('ai', 'Para exportar, vá até a aba "Exportar" no menu lateral. Você pode baixar o código em ZIP ou publicar direto no GitHub.');
-        } else if (text.toLowerCase().includes('cor')) {
-            addChatMessage('ai', 'Entendido! Estou ajustando a paleta de cores para ser mais moderna. Veja a prévia no editor.');
+            addChatMessage('ai', 'Para exportar, clique no botão "Exportar para Vercel" para baixar seus arquivos estruturados.');
         } else {
-            addChatMessage('ai', 'Estou analisando sua solicitação. Posso realizar alterações no código ou adicionar novas páginas ao seu projeto "' + (currentEditingId ? 'atual' : 'Novo App') + '".');
+            addChatMessage('ai', 'Estou analisando suas instruções para aplicar melhorias direto no código fonte.');
         }
     }, 1000);
 }
 
-function askAI(command) {
-    toggleAssistant();
-    addChatMessage('user', command);
-    setTimeout(() => {
-        addChatMessage('ai', `Processando comando: "${command}"... Aplicando melhorias via Gemini.`);
-        if (command.includes('Login')) {
-            document.getElementById('edit-banner').value += ' [Sessão de Login Ativada]';
-            updatePreviewLive();
-        }
-    }, 1200);
-}
-
+// DOWNLOAD DOS ARQUIVOS SEPARADOS PRONTOS PARA DEPLOY (VERCEL / NETLIFY)
 function exportZip() {
-    alert('Gerando pacote de arquivos... O download iniciará em instantes.');
+    const app = apps.find(a => a.id === currentEditingId);
+    if (!app) return alert('Selecione ou edite um aplicativo primeiro para exportar.');
+
+    // Função auxiliar para disparar o download individual dos arquivos estruturados
+    function downloadArquivo(conteudo, nomeArquivo, tipo) {
+        const blob = new Blob([conteudo], { type: tipo });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = nomeArquivo;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    // Código index.html adaptado apontando para os arquivos locais relativos
+    const htmlEstruturado = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${app.name}</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+    ${app.html}
+    <script src="script.js"></script>
+</body>
+</html>`;
+
+    // Dispara o download dos 3 arquivos limpos na raiz
+    downloadArquivo(htmlEstruturado, 'index.html', 'text/html');
+    downloadArquivo(app.css, 'estilo.css', 'text/css');
+    downloadArquivo(app.js, 'script.js', 'text/javascript');
+
+    alert('Pronto! Os arquivos index.html, estilo.css e script.js foram baixados. Agora basta colocá-los em uma pasta e arrastar para o painel da Vercel!');
 }
