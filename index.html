@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo de Damas Profissional com Inteligência Artificial
+
+Quer</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+:root {
+    --primary-color: #007BFF;
+    --bg: #F8F9FA;
+    --text-color: #343A40;
+    --card-bg: #FFFFFF;
+    --shadow: rgba(0,0,0,0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text-color);
+}
+
+header {
+    background: var(--primary-color);
+    color: white;
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+}
+
+nav ul li {
+    margin: 0 1rem;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+}
+
+.section {
+    padding: 2rem;
+    transition: background 0.3s;
+}
+
+.game-board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    border: 2px solid var(--primary-color);
+    margin: 1rem auto;
+    width: 80%;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    margin: 1rem;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.3rem;
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: darken(var(--primary-color), 10%);
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.section {
+    animation: fadeIn 0.5s;
+}
+
+@media (max-width: 768px) {
+    nav ul {
+        flex-direction: column;
+    }
+    .game-board {
+        width: 100%;
+    }
+}
+  </style>
+</head>
+<body>
+<header>
+    <nav>
+        <h1>Jogo de Damas Profissional</h1>
+        <ul>
+            <li><a href="#home">Início</a></li>
+            <li><a href="#play">Jogar</a></li>
+            <li><a href="#stats">Estatísticas</a></li>
+            <li><a href="#ranking">Ranking</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <section id="home" class="section">
+        <h2>Bem-vindo ao Jogo de Damas!</h2>
+        <p>Desafie-se contra nossa Inteligência Artificial enquanto aprimora suas habilidades no jogo de damas.</p>
+    </section>
+    <section id="play" class="section">
+        <h2>Jogar</h2>
+        <div id="gameBoard" class="game-board"></div>
+        <div class="controls">
+            <button id="undoBtn">Desfazer Jogada</button>
+            <button id="resetBtn">Reiniciar Partida</button>
+        </div>
+    </section>
+    <section id="stats" class="section">
+        <h2>Estatísticas</h2>
+        <div id="playerStats"></div>
+    </section>
+    <section id="ranking" class="section">
+        <h2>Ranking Local</h2>
+        <div id="rankingList"></div>
+    </section>
+</main>
+<footer>
+    <p>&copy; 2023 Jogo de Damas. Todos os direitos reservados.</p>
+</footer>
+  <script>
+class Game {
+    constructor() {
+        this.players = [{ name: 'Jogador', score: 0 }, { name: 'IA', score: 0 }];
+        this.currentPlayer = 0;
+    }
+
+    startGame() {
+        this.initializeBoard();
+        this.updateUI();
+    }
+
+    initializeBoard() {
+        // Code to initialize the checkers board
+    }
+
+    makeMove(startPos, endPos) {
+        if (this.isValidMove(startPos, endPos)) {
+            this.updateBoard(startPos, endPos);
+            this.checkPromotion(endPos);
+            this.togglePlayer();
+            this.iaMove();
+        }
+    }
+    
+    togglePlayer() {
+        this.currentPlayer = this.currentPlayer === 0 ? 1 : 0;
+    }
+    
+    isValidMove(startPos, endPos) {
+        // Code to validate moves
+        return true; // Placeholder
+    }
+
+    updateBoard(startPos, endPos) {
+        // Code to update the board with the move
+    }
+
+    checkPromotion(pos) {
+        // Code to check for promotion
+    }
+
+    iaMove() {
+        // Code for IA to make its move
+        this.renderIAEffect();
+    }
+
+    renderIAEffect() {
+        // Visual effects for IA move
+    }
+}
+
+const game = new Game();
+window.onload = () => game.startGame();
+  </script>
+</body>
+</html>
