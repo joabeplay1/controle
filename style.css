@@ -1,0 +1,366 @@
+:root {
+  --bg-dark: #0a0a0a;
+  --bg-surface: #121212;
+  --bg-hover: #282828;
+  --text-main: #ffffff;
+  --text-dim: #b3b3b3;
+  --accent: #1db954;
+  --accent-hover: #1ed760;
+  --sidebar-width: 240px;
+  --player-height: 90px;
+}
+
+.light-theme {
+  --bg-dark: #f8f9fa;
+  --bg-surface: #ffffff;
+  --bg-hover: #f1f3f4;
+  --text-main: #212529;
+  --text-dim: #5f6368;
+  --accent: #1db954;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body, html {
+  height: 100%;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: 1fr var(--player-height);
+  height: 100vh;
+}
+
+#sidebar {
+  background: var(--bg-dark);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+}
+
+nav ul {
+  list-style: none;
+}
+
+nav li {
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+nav li:hover, nav li.active {
+  color: var(--text-main);
+  background: var(--bg-hover);
+}
+
+#content-area {
+  background: linear-gradient(to bottom, #222, var(--bg-surface));
+  overflow-y: auto;
+  position: relative;
+}
+
+#main-header {
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.search-bar {
+  display: flex;
+  background: var(--bg-hover);
+  border-radius: 20px;
+  padding: 8px 16px;
+  width: 300px;
+}
+
+.search-bar input {
+  background: none;
+  border: none;
+  color: var(--text-main);
+  width: 100%;
+  outline: none;
+}
+
+.user-profile {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+#drive-connect-btn {
+  background: var(--accent);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+#drive-connect-btn:hover {
+  background: var(--accent-hover);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background: #555;
+  border-radius: 50%;
+}
+
+#player-bar {
+  grid-column: 1 / -1;
+  background: var(--bg-surface);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.now-playing {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 30%;
+}
+
+.now-playing img {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+}
+
+#player-title {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+#player-artist {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.player-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 40%;
+}
+
+.control-buttons {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: 0.2s;
+}
+
+.icon-btn:hover, .icon-btn.active {
+  color: var(--text-main);
+}
+
+.main-btn {
+  background: var(--text-main);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s;
+}
+
+.main-btn:active {
+  transform: scale(0.9);
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.progress-container span {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+#progress-track {
+  flex: 1;
+  height: 4px;
+  background: #4f4f4f;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+
+#progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  border-radius: 2px;
+}
+
+.volume-controls {
+  width: 30%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+#volume-slider {
+  accent-color: var(--accent);
+  width: 100px;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+  padding: 32px;
+}
+
+.card {
+  background: var(--bg-hover);
+  padding: 16px;
+  border-radius: 8px;
+  transition: 0.3s;
+  cursor: pointer;
+  position: relative;
+}
+
+.card:hover {
+  background: #333;
+}
+
+.card img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+}
+
+.card h4 {
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card p {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+#modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#modal-overlay.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: var(--bg-surface);
+  padding: 32px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+}
+
+.modal-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-footer button {
+  padding: 10px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  border: none;
+}
+
+#modal-confirm {
+  background: var(--accent);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  #app { grid-template-columns: 1fr; }
+  #sidebar { display: none; }
+  .search-bar { width: 150px; }
+  .now-playing { width: 50%; }
+  .volume-controls { display: none; }
+}
