@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Omega Factory ⚡</title>
-
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omega Factory ⚡</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 </head>
 <body>
 <canvas id="particles"></canvas>
 <header>
   <div class="logo">
     <div class="logo-icon">⚡</div>
-    <div class="logo-text"><h1>Omega Factory</h1><p>Gerador de Software com IA</p></div>
+    <div class="logo-text">
+      <h1>Omega Factory</h1>
+      <p>Gerador de Software com IA</p>
+    </div>
   </div>
   <div class="flex items-center gap-3" style="display:flex;align-items:center;gap:12px">
     <button class="header-btn" onclick="downloadAsSplit()" id="dl-split-btn" disabled>⬇ HTML/CSS/JS</button>
@@ -25,8 +27,17 @@
     <div>
       <div class="section-label">⚙ Configuração</div>
       <div class="grid-2" style="margin-top:8px">
-        <div><label>Provedor</label><select id="api-provider"><option value="gemini">Google Gemini</option><option value="groq">Groq</option></select></div>
-        <div><label>Modelo</label><select id="model-select"></select></div>
+        <div>
+          <label>Provedor</label>
+          <select id="api-provider">
+            <option value="gemini">Google Gemini</option>
+            <option value="groq">Groq</option>
+          </select>
+        </div>
+        <div>
+          <label>Modelo</label>
+          <select id="model-select"></select>
+        </div>
       </div>
       <div style="margin-top:10px">
         <label>API Key</label>
@@ -161,23 +172,6 @@
     </div>
   </div>
 </div>
-";if(!fix.toLowerCase().includes("  <script src="/js/script.js"></script>
-</body>"))fix+="\n</body>";if(!fix.toLowerCase().endsWith("</html>"))fix+="\n</html>";return fix;}
-  return code;
-}
-async function robustFetch(url,options){
-  const response=await fetch(url,options);
-  const data=await response.json().catch(()=>null);
-  if(!response.ok){const msg=data?.error?.message||data?.error?.code||(typeof data?.error==="string"?data.error:null)||data?.message||`HTTP ${response.status}: ${response.statusText}`;throw new Error(msg);}
-  if(data?.error)throw new Error(data.error.message||JSON.stringify(data.error));
-  return data;
-}
-async function callAPI(promptText){
-  const apiKey=document.getElementById("api-key").value.trim();
-  const provider=document.getElementById("api-provider").value;
-  const model=document.getElementById("model-select").value;
-  const isGemini=provider==="gemini";
-  const url=isGemini?`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`:"https://api.groq.com/openai/v1/chat/completions";
-  const userMsg=`INSTRUÇÕES CRÍTICAS: RESPONDA APENAS COM HTML COMPLETO. COMEÇAR COM <!DOCTYPE html>. CSS em <style>. JS em 
+<script src="script.js"></script>
 </body>
 </html>
